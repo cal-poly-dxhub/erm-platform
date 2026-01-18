@@ -1,0 +1,74 @@
+import React from "react";
+import { PlayCircle, PlusCircle } from "lucide-react";
+
+interface HeaderProps {
+  onLoadDemo: () => void;
+  onAddNew: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onLoadDemo, onAddNew }) => {
+  return (
+    <header className="flex flex-col md:flex-row justify-between items-center mb-8 pb-4 border-b border-gray-300">
+      <div className="text-center md:text-left mb-4 md:mb-0">
+        <h1 className="text-3xl font-bold text-calpoly-green">
+          Cal Poly{" "}
+          <span className="font-light text-gray-700">Risk Assessment Tool</span>
+        </h1>
+        <p className="text-gray-500">Enterprise Risk Management</p>
+      </div>
+      <div className="flex items-center space-x-2">
+        <div className="bg-gray-200 p-1 rounded-lg">
+          <button
+            id="btn-list-view"
+            className="px-3 py-1 text-sm font-semibold rounded-md bg-white shadow"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("viewChange", { detail: "list" })
+              )
+            }
+          >
+            List View
+          </button>
+          <button
+            id="btn-map-view"
+            className="px-3 py-1 text-sm font-semibold rounded-md text-gray-600"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("viewChange", { detail: "map" })
+              )
+            }
+          >
+            Heat Map
+          </button>
+          <button
+            id="btn-analytics-view"
+            className="px-3 py-1 text-sm font-semibold rounded-md text-gray-600"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("viewChange", { detail: "analytics" })
+              )
+            }
+          >
+            Analytics
+          </button>
+        </div>
+        <button
+          onClick={onLoadDemo}
+          className="flex items-center bg-calpoly-gold hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+        >
+          <PlayCircle className="w-5 h-5 mr-2" />
+          Load Demo
+        </button>
+        <button
+          onClick={onAddNew}
+          className="flex items-center bg-calpoly-green hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ring-2 ring-calpoly-gold/50"
+        >
+          <PlusCircle className="w-5 h-5 mr-2" />
+          Add New Risk
+        </button>
+      </div>
+    </header>
+  );
+};
+
+export default Header;
