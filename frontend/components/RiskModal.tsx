@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Sparkles, HelpCircle } from "lucide-react";
 import {
   likelihoods,
@@ -10,6 +10,8 @@ import {
 import { getRiskData } from "@/utils/riskCalculations";
 import { analyzeTextForSuggestions } from "@/utils/aiSuggestions";
 import { generateMitigationSteps } from "@/utils/gemini";
+import { assessRisk } from "@/utils/lambdaApi";
+import { generateMitigationStrategies, MitigationStrategy } from "@/utils/mitigationApi";
 import { Risk } from "@/types";
 
 interface RiskModalProps {
@@ -43,6 +45,17 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
 
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [mitigationStrategies, setMitigationStrategies] = useState<MitigationStrategy[]>([]);
+  const [lambdaSuggestion, setLambdaSuggestion] = useState<{
+    category?: string;
+    likelihood?: number;
+    impact?: number;
+    notes?: string;
+    similar?: { merged: boolean; risk_ids: string[] };
+  } | null>(null);
+  const [isLoadingLambda, setIsLoadingLambda] = useState(false);
+  const [lambdaError, setLambdaError] = useState<string | null>(null);
+  const lambdaCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [baselineData, setBaselineData] = useState({
     score: "-",
     rating: "-",
@@ -99,6 +112,8 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
       });
     }
     setAiSuggestion(null);
+    setLambdaSuggestion(null);
+    setLambdaError(null);
   }, [risk, isOpen]);
 
   useEffect(() => {
@@ -120,6 +135,122 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     );
     setAiSuggestion(suggestion);
   }, [formData.risk, formData.riskAnalysis]);
+
+  // Call Lambda to get category suggestion when department, risk title, and description are filled
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Clear previous timeout
+    if (lambdaCallTimeoutRef.current) {
+      clearTimeout(lambdaCallTimeoutRef.current);
+    }
+
+    // Check if we have the required fields for category suggestion
+    if (formData.department && formData.risk && formData.riskAnalysis) {
+      // Debounce the API call
+      lambdaCallTimeoutRef.current = setTimeout(async () => {
+        setIsLoadingLambda(true);
+        setLambdaError(null);
+        try {
+          const response = await assessRisk(
+            formData.department,
+            formData.risk,
+            formData.riskAnalysis
+          );
+          
+          // Store suggestion and auto-fill category if not manually set
+          setLambdaSuggestion((prev) => ({
+            ...prev,
+            category: response.category,
+            notes: response.notes,
+            similar: response.similar,
+          }));
+          
+          // Auto-fill category if user hasn't manually set it
+          if (response.category && !formData.riskCategory) {
+            setFormData((prev) => ({ ...prev, riskCategory: response.category || "" }));
+          }
+        } catch (error) {
+          // Silently fail for category suggestion - don't show error for optional suggestions
+          setLambdaError(error instanceof Error ? error.message : "Failed to get suggestions");
+        } finally {
+          setIsLoadingLambda(false);
+        }
+      }, 1000); // 1 second debounce
+    }
+
+    return () => {
+      if (lambdaCallTimeoutRef.current) {
+        clearTimeout(lambdaCallTimeoutRef.current);
+      }
+    };
+  }, [formData.department, formData.risk, formData.riskAnalysis, isOpen, formData.riskCategory]);
+
+  // Call Lambda to get baseline likelihood and impact when current controls is entered
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Clear previous timeout
+    if (lambdaCallTimeoutRef.current) {
+      clearTimeout(lambdaCallTimeoutRef.current);
+    }
+
+    // Check if we have all required fields including current controls
+    if (
+      formData.department &&
+      formData.risk &&
+      formData.riskAnalysis &&
+      formData.currentControls
+    ) {
+      // Debounce the API call
+      lambdaCallTimeoutRef.current = setTimeout(async () => {
+        setIsLoadingLambda(true);
+        setLambdaError(null);
+        try {
+          const response = await assessRisk(
+            formData.department,
+            formData.risk,
+            formData.riskAnalysis,
+            formData.currentControls
+          );
+          
+          // Store all suggestions
+          setLambdaSuggestion((prev) => ({
+            ...prev,
+            category: response.category || prev?.category,
+            likelihood: response.likelihood,
+            impact: response.impact,
+            notes: response.notes,
+            similar: response.similar,
+          }));
+
+          // Auto-fill likelihood and impact from Lambda response
+          // Users can still override by manually changing the values
+          if (response.likelihood !== undefined && response.likelihood !== null) {
+            setFormData((prev) => ({ ...prev, likelihood: String(response.likelihood) }));
+          }
+          if (response.impact !== undefined && response.impact !== null) {
+            setFormData((prev) => ({ ...prev, impact: String(response.impact) }));
+          }
+          
+          // Also auto-fill category if available and not already set
+          if (response.category && !formData.riskCategory) {
+            setFormData((prev) => ({ ...prev, riskCategory: response.category || "" }));
+          }
+        } catch (error) {
+          setLambdaError(error instanceof Error ? error.message : "Failed to get risk assessment");
+        } finally {
+          setIsLoadingLambda(false);
+        }
+      }, 1000); // 1 second debounce
+    }
+
+    return () => {
+      if (lambdaCallTimeoutRef.current) {
+        clearTimeout(lambdaCallTimeoutRef.current);
+      }
+    };
+  }, [formData.department, formData.risk, formData.riskAnalysis, formData.currentControls, isOpen]);
 
   const updateCalculations = () => {
     setBaselineData(getRiskData(formData.likelihood, formData.impact));
@@ -143,16 +274,77 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
   };
 
   const handleGenerateMitigation = async () => {
+    // Validate required fields
+    if (!formData.risk || !formData.department || !formData.riskAnalysis || !formData.currentControls || !formData.riskCategory) {
+      alert("Please fill in Risk, Department, Risk Analysis, Current Controls, and Category before generating mitigation strategies.");
+      return;
+    }
+
+    if (!formData.likelihood || !formData.impact) {
+      alert("Please set baseline Likelihood and Impact before generating mitigation strategies.");
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const steps = await generateMitigationSteps(
+      const baselineScore = baselineData.score === "-" ? 0 : Number(baselineData.score);
+      
+      console.log("Calling generateMitigationStrategies with:", {
+        risk: formData.risk,
+        department: formData.department,
+        riskAnalysis: formData.riskAnalysis,
+        currentControls: formData.currentControls,
+        category: formData.riskCategory,
+        likelihood: formData.likelihood,
+        impact: formData.impact,
+        baselineScore,
+      });
+
+      const response = await generateMitigationStrategies(
         formData.risk,
+        formData.department,
         formData.riskAnalysis,
-        formData.currentControls
+        formData.currentControls,
+        formData.riskCategory,
+        formData.likelihood,
+        formData.impact,
+        baselineScore
       );
-      handleChange("additionalControls", steps);
+
+      console.log("Received response:", response);
+
+      // Store strategies
+      const strategies = response.strategies || [];
+      setMitigationStrategies(strategies);
+
+      if (strategies.length === 0) {
+        alert("No mitigation strategies were generated. Please try again.");
+        return;
+      }
+
+      // Format strategies for display in additionalControls
+      const strategiesText = strategies
+        .map((strategy, index) => {
+          const typeLabel = strategy.type === "Preventative" ? "Preventative" : 
+                           strategy.type === "Detective" ? "Detective" : "Corrective";
+          return `${index + 1}. [${typeLabel}] ${strategy.title}\n   ${strategy.description}\n   Urgency: ${strategy.urgency} | Likelihood Impact: ${strategy.likelihood_rating}`;
+        })
+        .join("\n\n");
+
+      handleChange("additionalControls", strategiesText);
+
+      // Auto-fill residual risk values
+      if (response.residual_risk && Object.keys(response.residual_risk).length > 0) {
+        if (response.residual_risk.updated_likelihood !== undefined && response.residual_risk.updated_likelihood !== null) {
+          setFormData((prev) => ({ ...prev, updatedLikelihood: String(response.residual_risk.updated_likelihood) }));
+        }
+        if (response.residual_risk.updated_impact !== undefined && response.residual_risk.updated_impact !== null) {
+          setFormData((prev) => ({ ...prev, updatedImpact: String(response.residual_risk.updated_impact) }));
+        }
+      }
     } catch (error) {
-      alert(`Could not generate mitigation steps. ${error.message}`);
+      console.error("Error generating mitigation strategies:", error);
+      alert(`Could not generate mitigation strategies. ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsGenerating(false);
     }
@@ -321,6 +513,58 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   </div>
                 </div>
               )}
+              {/* Lambda API Suggestions */}
+              {(lambdaSuggestion || isLoadingLambda) && (
+                <div className="col-span-full mt-2 p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+                  <div className="flex items-center">
+                    <Sparkles className="w-5 h-5 mr-2 text-blue-600" />
+                    <h5 className="font-semibold text-blue-700">
+                      Risk Assessment AI Suggestions
+                    </h5>
+                    {isLoadingLambda && (
+                      <span className="ml-2 text-sm text-blue-600">Analyzing...</span>
+                    )}
+                  </div>
+                  {lambdaSuggestion && (
+                    <div className="text-sm mt-2 text-gray-700 pl-7">
+                      {lambdaSuggestion.category && (
+                        <div className="mb-2">
+                          <p>
+                            <strong>Suggested Category:</strong>{" "}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                applySuggestion("riskCategory", lambdaSuggestion.category)
+                              }
+                              className="ml-2 bg-blue-200 text-blue-800 font-semibold py-1 px-2 rounded-md hover:bg-blue-300"
+                            >
+                              {lambdaSuggestion.category}
+                            </button>
+                          </p>
+                          {lambdaSuggestion.similar?.risk_ids && lambdaSuggestion.similar.risk_ids.length > 0 && (
+                            <p className="mt-1 text-xs text-gray-600">
+                              <strong>Similar Risk IDs:</strong>{" "}
+                              <span className="text-blue-600 font-medium">
+                                {lambdaSuggestion.similar.risk_ids.join(", ")}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {lambdaSuggestion.notes && (
+                        <p className="mt-1 text-xs text-gray-600 italic">
+                          {lambdaSuggestion.notes}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {lambdaError && (
+                    <p className="text-xs text-red-600 mt-2 pl-7">
+                      {lambdaError}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Section 2 */}
@@ -340,10 +584,20 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   }
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
+                {isLoadingLambda && formData.currentControls && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Generating baseline risk assessment...
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Likelihood
+                  {lambdaSuggestion?.likelihood && (
+                    <span className="ml-2 text-xs text-blue-600 font-normal">
+                      (Suggested: {likelihoods.find(l => l.value === lambdaSuggestion.likelihood)?.text || lambdaSuggestion.likelihood})
+                    </span>
+                  )}
                 </label>
                 <select
                   value={formData.likelihood}
@@ -361,6 +615,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1 flex items-center">
                   Impact
+                  {lambdaSuggestion?.impact && (
+                    <span className="ml-2 text-xs text-blue-600 font-normal">
+                      (Suggested: {impacts.find(i => i.value === lambdaSuggestion.impact)?.text || lambdaSuggestion.impact})
+                    </span>
+                  )}
                   <span className="tooltip ml-2">
                     <HelpCircle className="w-4 h-4 text-gray-400" />
                     <span
@@ -457,6 +716,60 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   }
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
+                {mitigationStrategies.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <h5 className="text-sm font-semibold text-calpoly-green mb-2">
+                      Generated Mitigation Strategies:
+                    </h5>
+                    {mitigationStrategies.map((strategy, index) => {
+                      const typeColors = {
+                        Preventative: "bg-green-100 text-green-800 border-green-300",
+                        Detective: "bg-blue-100 text-blue-800 border-blue-300",
+                        Corrective: "bg-orange-100 text-orange-800 border-orange-300",
+                      };
+                      const urgencyColors = {
+                        Immediate: "text-red-600 font-bold",
+                        Urgent: "text-orange-600 font-semibold",
+                        Low: "text-gray-600",
+                      };
+                      return (
+                        <div
+                          key={index}
+                          className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-1 text-xs font-semibold rounded border ${
+                                  typeColors[strategy.type] || "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {strategy.type}
+                              </span>
+                              <span className="font-semibold text-gray-800">
+                                {strategy.title}
+                              </span>
+                            </div>
+                            <span className={`text-xs ${urgencyColors[strategy.urgency] || "text-gray-600"}`}>
+                              {strategy.urgency}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 mb-2">{strategy.description}</p>
+                          <div className="flex items-center gap-4 text-xs text-gray-600">
+                            <span>
+                              <strong>Likelihood:</strong> {strategy.likelihood_rating}
+                            </span>
+                            {strategy.calculated_effectiveness_score !== undefined && (
+                              <span>
+                                <strong>Effectiveness Score:</strong> {strategy.calculated_effectiveness_score}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -547,6 +860,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Risk Category
+                  {lambdaSuggestion?.category && (
+                    <span className="ml-2 text-xs text-blue-600 font-normal">
+                      (AI Suggested: {lambdaSuggestion.category})
+                    </span>
+                  )}
                 </label>
                 <select
                   value={formData.riskCategory}
