@@ -1,5 +1,6 @@
 import React from "react";
-import { PlayCircle, PlusCircle } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, PlayCircle, PlusCircle } from "lucide-react";
 
 interface HeaderProps {
   onLoadDemo: () => void;
@@ -52,6 +53,13 @@ const Header: React.FC<HeaderProps> = ({ onLoadDemo, onAddNew }) => {
             Analytics
           </button>
         </div>
+        <Link
+          href="/dashboard"
+          className="flex items-center bg-white hover:bg-gray-50 text-calpoly-green font-bold py-2 px-4 rounded-lg transition duration-300 border border-calpoly-green/30"
+        >
+          <BarChart3 className="w-5 h-5 mr-2" />
+          Dashboard
+        </Link>
         <button
           onClick={onLoadDemo}
           className="flex items-center bg-calpoly-gold hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
