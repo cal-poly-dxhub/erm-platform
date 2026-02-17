@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Sparkles, HelpCircle } from "lucide-react";
+import { X, Sparkles, HelpCircle, ShieldAlert, Lock } from "lucide-react";
 import {
   likelihoods,
   impacts,
@@ -24,8 +24,14 @@ interface RiskModalProps {
 const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) => {
   const [formData, setFormData] = useState({
     riskIdNo: "",
-    collegeUnit: "",
+    
+    // Organization Scope
+    orgType: "college", 
+    college: "",
+    unit: "",
     department: "",
+    isCollegeWide: false,
+    
     owner: "",
     risk: "",
     riskAnalysis: "",
@@ -35,14 +41,31 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     additionalControls: "",
     updatedLikelihood: "",
     updatedImpact: "",
+    
+    // Status Logic
     status: "",
+    statusTolerance: "",
     statusPoc: "",
     riskCategory: "",
-    resourcesNeeded: "",
+    
+    // Resource Buckets (Moved to Section 4)
+    resourceInternalFTE: "",
+    resourceExternal: "",
+    resourceFunding: "",
+    resourcesNeeded: "", 
+    
+    // Comments
     leadershipComments: "",
     ermComments: "",
+    ehsComments: "", 
+    
+    // Privacy Flags (New)
+    isPrivate: false,
+    isAttorneyClientPrivilege: false,
+    // Removed isVerified (no longer mandatory)
   });
 
+  // ... (AI & Helper States remain the same) ...
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [mitigationStrategies, setMitigationStrategies] = useState<MitigationStrategy[]>([]);
@@ -71,8 +94,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     if (risk) {
       setFormData({
         riskIdNo: risk.riskIdNo || "",
-        collegeUnit: risk.collegeUnit || "",
+        orgType: risk.orgType || "college",
+        college: risk.college || "",
+        unit: risk.unit || "",
         department: risk.department || "",
+        isCollegeWide: risk.isCollegeWide || false,
         owner: risk.owner || "",
         risk: risk.risk || "",
         riskAnalysis: risk.riskAnalysis || "",
@@ -83,17 +109,27 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
         updatedLikelihood: risk.updatedLikelihood || "",
         updatedImpact: risk.updatedImpact || "",
         status: risk.status || "",
+        statusTolerance: risk.statusTolerance || "",
         statusPoc: risk.statusPoc || "",
         riskCategory: risk.riskCategory || "",
+        resourceInternalFTE: risk.resourceInternalFTE || "",
+        resourceExternal: risk.resourceExternal || "",
+        resourceFunding: risk.resourceFunding || "",
         resourcesNeeded: risk.resourcesNeeded || "",
         leadershipComments: risk.leadershipComments || "",
         ermComments: risk.ermComments || "",
+        ehsComments: risk.ehsComments || "",
+        isPrivate: risk.isPrivate || false,
+        isAttorneyClientPrivilege: risk.isAttorneyClientPrivilege || false,
       });
     } else {
       setFormData({
         riskIdNo: "",
-        collegeUnit: "",
+        orgType: "college",
+        college: "",
+        unit: "",
         department: "",
+        isCollegeWide: false,
         owner: "",
         risk: "",
         riskAnalysis: "",
@@ -104,11 +140,18 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
         updatedLikelihood: "",
         updatedImpact: "",
         status: "",
+        statusTolerance: "",
         statusPoc: "",
         riskCategory: "",
+        resourceInternalFTE: "",
+        resourceExternal: "",
+        resourceFunding: "",
         resourcesNeeded: "",
         leadershipComments: "",
         ermComments: "",
+        ehsComments: "",
+        isPrivate: false,
+        isAttorneyClientPrivilege: false,
       });
     }
     setAiSuggestion(null);
@@ -116,6 +159,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     setLambdaError(null);
   }, [risk, isOpen]);
 
+  // ... (Calculations & Effects remain the same) ...
   useEffect(() => {
     if (isOpen) {
       updateCalculations();
@@ -136,18 +180,12 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     setAiSuggestion(suggestion);
   }, [formData.risk, formData.riskAnalysis]);
 
-  // Call Lambda to get category suggestion when department, risk title, and description are filled
+  // Call Lambda to get category suggestion
   useEffect(() => {
     if (!isOpen) return;
-    
-    // Clear previous timeout
-    if (lambdaCallTimeoutRef.current) {
-      clearTimeout(lambdaCallTimeoutRef.current);
-    }
+    if (lambdaCallTimeoutRef.current) clearTimeout(lambdaCallTimeoutRef.current);
 
-    // Check if we have the required fields for category suggestion
     if (formData.department && formData.risk && formData.riskAnalysis) {
-      // Debounce the API call
       lambdaCallTimeoutRef.current = setTimeout(async () => {
         setIsLoadingLambda(true);
         setLambdaError(null);
@@ -157,52 +195,38 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
             formData.risk,
             formData.riskAnalysis
           );
-          
-          // Store suggestion and auto-fill category if not manually set
           setLambdaSuggestion((prev) => ({
             ...prev,
             category: response.category,
             notes: response.notes,
             similar: response.similar,
           }));
-          
-          // Auto-fill category if user hasn't manually set it
           if (response.category && !formData.riskCategory) {
             setFormData((prev) => ({ ...prev, riskCategory: response.category || "" }));
           }
         } catch (error) {
-          // Silently fail for category suggestion - don't show error for optional suggestions
           setLambdaError(error instanceof Error ? error.message : "Failed to get suggestions");
         } finally {
           setIsLoadingLambda(false);
         }
-      }, 1000); // 1 second debounce
+      }, 1000);
     }
-
     return () => {
-      if (lambdaCallTimeoutRef.current) {
-        clearTimeout(lambdaCallTimeoutRef.current);
-      }
+      if (lambdaCallTimeoutRef.current) clearTimeout(lambdaCallTimeoutRef.current);
     };
   }, [formData.department, formData.risk, formData.riskAnalysis, isOpen, formData.riskCategory]);
 
-  // Call Lambda to get baseline likelihood and impact when current controls is entered
+  // Call Lambda to get baseline likelihood and impact
   useEffect(() => {
     if (!isOpen) return;
-    
-    // Clear previous timeout
-    if (lambdaCallTimeoutRef.current) {
-      clearTimeout(lambdaCallTimeoutRef.current);
-    }
+    if (lambdaCallTimeoutRef.current) clearTimeout(lambdaCallTimeoutRef.current);
 
-    // Check if we have all required fields including current controls
     if (
       formData.department &&
       formData.risk &&
       formData.riskAnalysis &&
       formData.currentControls
     ) {
-      // Debounce the API call
       lambdaCallTimeoutRef.current = setTimeout(async () => {
         setIsLoadingLambda(true);
         setLambdaError(null);
@@ -213,8 +237,6 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
             formData.riskAnalysis,
             formData.currentControls
           );
-          
-          // Store all suggestions
           setLambdaSuggestion((prev) => ({
             ...prev,
             category: response.category || prev?.category,
@@ -223,17 +245,12 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
             notes: response.notes,
             similar: response.similar,
           }));
-
-          // Auto-fill likelihood and impact from Lambda response
-          // Users can still override by manually changing the values
           if (response.likelihood !== undefined && response.likelihood !== null) {
             setFormData((prev) => ({ ...prev, likelihood: String(response.likelihood) }));
           }
           if (response.impact !== undefined && response.impact !== null) {
             setFormData((prev) => ({ ...prev, impact: String(response.impact) }));
           }
-          
-          // Also auto-fill category if available and not already set
           if (response.category && !formData.riskCategory) {
             setFormData((prev) => ({ ...prev, riskCategory: response.category || "" }));
           }
@@ -242,13 +259,10 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
         } finally {
           setIsLoadingLambda(false);
         }
-      }, 1000); // 1 second debounce
+      }, 1000);
     }
-
     return () => {
-      if (lambdaCallTimeoutRef.current) {
-        clearTimeout(lambdaCallTimeoutRef.current);
-      }
+      if (lambdaCallTimeoutRef.current) clearTimeout(lambdaCallTimeoutRef.current);
     };
   }, [formData.department, formData.risk, formData.riskAnalysis, formData.currentControls, isOpen]);
 
@@ -265,6 +279,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // removed mandatory verification check
     onSave({ ...formData, id: risk?.id || `risk_${new Date().getTime()}` });
     onClose();
   };
@@ -274,35 +289,21 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
   };
 
   const handleGenerateMitigation = async () => {
-    // Validate required fields
-    if (!formData.risk || !formData.department || !formData.riskAnalysis || !formData.currentControls || !formData.riskCategory) {
-      alert("Please fill in Risk, Department, Risk Analysis, Current Controls, and Category before generating mitigation strategies.");
+    if (!formData.risk || !formData.riskAnalysis || !formData.currentControls || !formData.riskCategory) {
+      alert("Please fill in Risk, Analysis, Controls, and Category first.");
       return;
     }
-
     if (!formData.likelihood || !formData.impact) {
-      alert("Please set baseline Likelihood and Impact before generating mitigation strategies.");
+      alert("Please set baseline Likelihood and Impact first.");
       return;
     }
 
     setIsGenerating(true);
     try {
       const baselineScore = baselineData.score === "-" ? 0 : Number(baselineData.score);
-      
-      console.log("Calling generateMitigationStrategies with:", {
-        risk: formData.risk,
-        department: formData.department,
-        riskAnalysis: formData.riskAnalysis,
-        currentControls: formData.currentControls,
-        category: formData.riskCategory,
-        likelihood: formData.likelihood,
-        impact: formData.impact,
-        baselineScore,
-      });
-
       const response = await generateMitigationStrategies(
         formData.risk,
-        formData.department,
+        formData.department || formData.college || formData.unit,
         formData.riskAnalysis,
         formData.currentControls,
         formData.riskCategory,
@@ -310,41 +311,35 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
         formData.impact,
         baselineScore
       );
-
-      console.log("Received response:", response);
-
-      // Store strategies
       const strategies = response.strategies || [];
       setMitigationStrategies(strategies);
 
       if (strategies.length === 0) {
-        alert("No mitigation strategies were generated. Please try again.");
+        alert("No strategies generated.");
         return;
       }
 
-      // Format strategies for display in additionalControls
       const strategiesText = strategies
         .map((strategy, index) => {
           const typeLabel = strategy.type === "Preventative" ? "Preventative" : 
                            strategy.type === "Detective" ? "Detective" : "Corrective";
-          return `${index + 1}. [${typeLabel}] ${strategy.title}\n   ${strategy.description}\n   Urgency: ${strategy.urgency} | Likelihood Impact: ${strategy.likelihood_rating}`;
+          return `${index + 1}. [${typeLabel}] ${strategy.title}\n   ${strategy.description}\n   Urgency: ${strategy.urgency}`;
         })
         .join("\n\n");
 
       handleChange("additionalControls", strategiesText);
 
-      // Auto-fill residual risk values
-      if (response.residual_risk && Object.keys(response.residual_risk).length > 0) {
-        if (response.residual_risk.updated_likelihood !== undefined && response.residual_risk.updated_likelihood !== null) {
+      if (response.residual_risk) {
+        if (response.residual_risk.updated_likelihood) {
           setFormData((prev) => ({ ...prev, updatedLikelihood: String(response.residual_risk.updated_likelihood) }));
         }
-        if (response.residual_risk.updated_impact !== undefined && response.residual_risk.updated_impact !== null) {
+        if (response.residual_risk.updated_impact) {
           setFormData((prev) => ({ ...prev, updatedImpact: String(response.residual_risk.updated_impact) }));
         }
       }
     } catch (error) {
-      console.error("Error generating mitigation strategies:", error);
-      alert(`Could not generate mitigation strategies. ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("Error generating strategies:", error);
+      alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsGenerating(false);
     }
@@ -401,12 +396,14 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
           </div>
 
           <div className="mt-4 max-h-[75vh] overflow-y-auto pr-4">
-            {/* Section 1 */}
+            
+            {/* --- Section 1: Risk Identification & Context --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h4 className="col-span-full text-lg font-semibold text-calpoly-gold mb-2">
                 1. Risk Identification & Context
               </h4>
-              <div>
+              
+              <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Risk ID No.
                 </label>
@@ -417,28 +414,104 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  College/Unit
+
+              {/* ORGANIZATION SCOPE SELECTOR */}
+              <div className="col-span-full md:col-span-3 bg-white p-3 rounded border border-gray-200">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Organization Scope <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.collegeUnit}
-                  onChange={(e) => handleChange("collegeUnit", e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-                />
+                <div className="flex flex-wrap gap-4 items-center">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="orgType"
+                      value="college"
+                      checked={formData.orgType === "college"}
+                      onChange={(e) => handleChange("orgType", e.target.value)}
+                      className="text-calpoly-green focus:ring-calpoly-gold"
+                    />
+                    <span className="text-gray-900 font-medium">Academic College</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="orgType"
+                      value="unit"
+                      checked={formData.orgType === "unit"}
+                      onChange={(e) => handleChange("orgType", e.target.value)}
+                      className="text-calpoly-green focus:ring-calpoly-gold"
+                    />
+                    <span className="text-gray-900 font-medium">Administrative Unit</span>
+                  </label>
+                  
+                  {/* Conditional Dropdowns with COMPREHENSIVE Cal Poly Data */}
+                  <div className="flex-grow">
+                    {formData.orgType === "college" ? (
+                      <select
+                        value={formData.college}
+                        onChange={(e) => handleChange("college", e.target.value)}
+                        className="w-full border border-gray-300 rounded-md px-3 py-1"
+                      >
+                        <option value="">-- Select College --</option>
+                        <option value="cafes">College of Agriculture, Food & Env. Sciences (CAFES)</option>
+                        <option value="caed">College of Architecture & Env. Design (CAED)</option>
+                        <option value="ocob">Orfalea College of Business (OCOB)</option>
+                        <option value="ceng">College of Engineering (CENG)</option>
+                        <option value="cla">College of Liberal Arts (CLA)</option>
+                        <option value="bcsm">Bailey College of Science & Mathematics (BCSM)</option>
+                        <option value="cpace">Extended, Professional & Continuing Education</option>
+                      </select>
+                    ) : (
+                      <select
+                        value={formData.unit}
+                        onChange={(e) => handleChange("unit", e.target.value)}
+                        className="w-full border border-gray-300 rounded-md px-3 py-1"
+                      >
+                        <option value="">-- Select Unit --</option>
+                        <option value="academic_affairs">Academic Affairs</option>
+                        <option value="admin_finance">Administration & Finance</option>
+                        <option value="student_affairs">Student Affairs</option>
+                        <option value="diversity">Diversity & Inclusion (OUDI)</option>
+                        <option value="research">Research & Graduate Programs</option>
+                        <option value="its">Information Technology Services (ITS)</option>
+                        <option value="facilities">Facilities Management & Development</option>
+                        <option value="public_safety">Public Safety / University Police</option>
+                        <option value="partners">Cal Poly Partners (Corporation)</option>
+                        <option value="advancement">University Development & Alumni Engagement</option>
+                        <option value="marketing">University Communications & Marketing</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Cross Pollination Checkbox */}
+                <div className="mt-2 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isCollegeWide"
+                    checked={formData.isCollegeWide}
+                    onChange={(e) => handleChange("isCollegeWide", e.target.checked)}
+                    className="h-4 w-4 text-calpoly-gold rounded border-gray-300 focus:ring-calpoly-green"
+                  />
+                  <label htmlFor="isCollegeWide" className="ml-2 text-xs font-semibold text-gray-600">
+                    This risk applies <span className="text-calpoly-green uppercase">College-Wide</span> or impacts other Units.
+                  </label>
+                </div>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Department
+                  Specific Department
                 </label>
                 <input
                   type="text"
                   value={formData.department}
                   onChange={(e) => handleChange("department", e.target.value)}
+                  placeholder="e.g. Civil Engineering"
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Owner
@@ -450,9 +523,10 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
+              
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk
+                  Risk Description
                 </label>
                 <textarea
                   rows="3"
@@ -461,6 +535,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
+              
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Risk Analysis
@@ -472,102 +547,26 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-              {aiSuggestion && (
+
+              {/* AI Suggestions Display */}
+              {(aiSuggestion || lambdaSuggestion) && (
                 <div className="col-span-full mt-2 p-3 bg-calpoly-green/5 border-l-4 border-calpoly-green rounded-r-lg">
                   <div className="flex items-center">
                     <Sparkles className="w-5 h-5 mr-2 text-calpoly-gold" />
-                    <h5 className="font-semibold text-calpoly-green">
-                      AI Suggestions
-                    </h5>
+                    <h5 className="font-semibold text-calpoly-green">AI Suggestions</h5>
                   </div>
                   <div className="text-sm mt-2 text-gray-700 pl-7">
-                    <p className="mb-2">
-                      Based on your input, here are some suggestions:
-                    </p>
-                    <p>
-                      <strong>Category:</strong>{" "}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          applySuggestion("riskCategory", aiSuggestion.category)
-                        }
-                        className="ml-2 bg-calpoly-gold/20 text-calpoly-green font-semibold py-1 px-2 rounded-md hover:bg-calpoly-gold/40"
-                      >
-                        {aiSuggestion.category}
-                      </button>
-                    </p>
-                    {aiSuggestion.impact && (
-                      <p className="mt-1">
-                        <strong>Impact:</strong>{" "}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            applySuggestion("impact", aiSuggestion.impact.value)
-                          }
-                          className="ml-2 bg-calpoly-gold/20 text-calpoly-green font-semibold py-1 px-2 rounded-md hover:bg-calpoly-gold/40"
-                        >
-                          {aiSuggestion.impact.text}
-                        </button>
-                      </p>
+                    {(lambdaSuggestion?.category || aiSuggestion?.category) && (
+                       <p className="mb-1">
+                         <strong>Category:</strong> {lambdaSuggestion?.category || aiSuggestion?.category}
+                       </p>
                     )}
                   </div>
-                </div>
-              )}
-              {/* Lambda API Suggestions */}
-              {(lambdaSuggestion || isLoadingLambda) && (
-                <div className="col-span-full mt-2 p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-                  <div className="flex items-center">
-                    <Sparkles className="w-5 h-5 mr-2 text-blue-600" />
-                    <h5 className="font-semibold text-blue-700">
-                      Risk Assessment AI Suggestions
-                    </h5>
-                    {isLoadingLambda && (
-                      <span className="ml-2 text-sm text-blue-600">Analyzing...</span>
-                    )}
-                  </div>
-                  {lambdaSuggestion && (
-                    <div className="text-sm mt-2 text-gray-700 pl-7">
-                      {lambdaSuggestion.category && (
-                        <div className="mb-2">
-                          <p>
-                            <strong>Suggested Category:</strong>{" "}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                applySuggestion("riskCategory", lambdaSuggestion.category)
-                              }
-                              className="ml-2 bg-blue-200 text-blue-800 font-semibold py-1 px-2 rounded-md hover:bg-blue-300"
-                            >
-                              {lambdaSuggestion.category}
-                            </button>
-                          </p>
-                          {lambdaSuggestion.similar?.risk_ids && lambdaSuggestion.similar.risk_ids.length > 0 && (
-                            <p className="mt-1 text-xs text-gray-600">
-                              <strong>Similar Risk IDs:</strong>{" "}
-                              <span className="text-blue-600 font-medium">
-                                {lambdaSuggestion.similar.risk_ids.join(", ")}
-                              </span>
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      {lambdaSuggestion.notes && (
-                        <p className="mt-1 text-xs text-gray-600 italic">
-                          {lambdaSuggestion.notes}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {lambdaError && (
-                    <p className="text-xs text-red-600 mt-2 pl-7">
-                      {lambdaError}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
 
-            {/* Section 2 */}
+            {/* --- Section 2: Baseline Risk Assessment --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h4 className="col-span-full text-lg font-semibold text-calpoly-gold mb-2">
                 2. Baseline Risk Assessment
@@ -584,20 +583,14 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   }
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
-                {isLoadingLambda && formData.currentControls && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    Generating baseline risk assessment...
-                  </p>
+                {isLoadingLambda && (
+                  <p className="text-xs text-blue-600 mt-1">Analyzing controls...</p>
                 )}
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Likelihood
-                  {lambdaSuggestion?.likelihood && (
-                    <span className="ml-2 text-xs text-blue-600 font-normal">
-                      (Suggested: {likelihoods.find(l => l.value === lambdaSuggestion.likelihood)?.text || lambdaSuggestion.likelihood})
-                    </span>
-                  )}
                 </label>
                 <select
                   value={formData.likelihood}
@@ -606,26 +599,17 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                 >
                   <option value="">Select Likelihood</option>
                   {likelihoods.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.text}
-                    </option>
+                    <option key={l.value} value={l.value}>{l.text}</option>
                   ))}
                 </select>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1 flex items-center">
                   Impact
-                  {lambdaSuggestion?.impact && (
-                    <span className="ml-2 text-xs text-blue-600 font-normal">
-                      (Suggested: {impacts.find(i => i.value === lambdaSuggestion.impact)?.text || lambdaSuggestion.impact})
-                    </span>
-                  )}
                   <span className="tooltip ml-2">
                     <HelpCircle className="w-4 h-4 text-gray-400" />
-                    <span
-                      className="tooltiptext"
-                      dangerouslySetInnerHTML={{ __html: impactTooltipContent }}
-                    />
+                    <span className="tooltiptext" dangerouslySetInnerHTML={{ __html: impactTooltipContent }} />
                   </span>
                 </label>
                 <select
@@ -635,56 +619,35 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                 >
                   <option value="">Select Impact</option>
                   {impacts.map((i) => (
-                    <option key={i.value} value={i.value}>
-                      {i.text}
-                    </option>
+                    <option key={i.value} value={i.value}>{i.text}</option>
                   ))}
                 </select>
               </div>
+
+              {/* Score Display */}
               <div className="col-span-2 grid grid-cols-3 gap-4 bg-white p-3 rounded-lg border border-gray-200">
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Rating
-                  </label>
-                  <div
-                    className={`font-bold text-lg p-2 rounded-md ${
-                      ratingColors[baselineData.rating] ||
-                      "bg-gray-100 text-gray-800"
-                    }`}
-                  >
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Rating</label>
+                  <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[baselineData.rating] || "bg-gray-100 text-gray-800"}`}>
                     {baselineData.rating}
                   </div>
                 </div>
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Score
-                  </label>
-                  <div
-                    className={`font-bold text-lg p-2 rounded-md ${
-                      ratingColors[baselineData.rating] ||
-                      "bg-gray-100 text-gray-800"
-                    }`}
-                  >
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Score</label>
+                  <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[baselineData.rating] || "bg-gray-100 text-gray-800"}`}>
                     {baselineData.score}
                   </div>
                 </div>
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Response
-                  </label>
-                  <div
-                    className={`font-semibold text-md p-2 rounded-md ${
-                      ratingColors[baselineData.rating] ||
-                      "bg-gray-100 text-gray-800"
-                    }`}
-                  >
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Response</label>
+                  <div className="font-semibold text-md p-2 rounded-md bg-gray-100 text-gray-800">
                     {baselineData.response}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Section 3 */}
+            {/* --- Section 3: Residual Risk Assessment --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <div className="col-span-full flex justify-between items-center mb-2">
                 <h4 className="text-lg font-semibold text-calpoly-gold">
@@ -696,14 +659,10 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   disabled={isGenerating}
                   className="flex items-center bg-calpoly-green hover:opacity-90 text-white text-sm font-bold py-2 px-3 rounded-lg transition duration-300 disabled:opacity-50"
                 >
-                  <span>
-                    {isGenerating
-                      ? "Generating..."
-                      : "✨ Suggest Mitigation Steps"}
-                  </span>
-                  {isGenerating && <span className="spinner ml-2" />}
+                  <span>{isGenerating ? "Generating..." : "✨ Suggest Mitigation Steps"}</span>
                 </button>
               </div>
+              
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Additional Control Measures
@@ -711,160 +670,72 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                 <textarea
                   rows="4"
                   value={formData.additionalControls}
-                  onChange={(e) =>
-                    handleChange("additionalControls", e.target.value)
-                  }
+                  onChange={(e) => handleChange("additionalControls", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
-                {mitigationStrategies.length > 0 && (
-                  <div className="mt-4 space-y-3">
-                    <h5 className="text-sm font-semibold text-calpoly-green mb-2">
-                      Generated Mitigation Strategies:
-                    </h5>
-                    {mitigationStrategies.map((strategy, index) => {
-                      const typeColors = {
-                        Preventative: "bg-green-100 text-green-800 border-green-300",
-                        Detective: "bg-blue-100 text-blue-800 border-blue-300",
-                        Corrective: "bg-orange-100 text-orange-800 border-orange-300",
-                      };
-                      const urgencyColors = {
-                        Immediate: "text-red-600 font-bold",
-                        Urgent: "text-orange-600 font-semibold",
-                        Low: "text-gray-600",
-                      };
-                      return (
-                        <div
-                          key={index}
-                          className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`px-2 py-1 text-xs font-semibold rounded border ${
-                                  typeColors[strategy.type] || "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {strategy.type}
-                              </span>
-                              <span className="font-semibold text-gray-800">
-                                {strategy.title}
-                              </span>
-                            </div>
-                            <span className={`text-xs ${urgencyColors[strategy.urgency] || "text-gray-600"}`}>
-                              {strategy.urgency}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700 mb-2">{strategy.description}</p>
-                          <div className="flex items-center gap-4 text-xs text-gray-600">
-                            <span>
-                              <strong>Likelihood:</strong> {strategy.likelihood_rating}
-                            </span>
-                            {strategy.calculated_effectiveness_score !== undefined && (
-                              <span>
-                                <strong>Effectiveness Score:</strong> {strategy.calculated_effectiveness_score}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <p className="text-xs text-gray-500 mt-1">You can edit the AI generated strategies above.</p>
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Updated Likelihood
-                </label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Updated Likelihood</label>
                 <select
                   value={formData.updatedLikelihood}
-                  onChange={(e) =>
-                    handleChange("updatedLikelihood", e.target.value)
-                  }
+                  onChange={(e) => handleChange("updatedLikelihood", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 >
                   <option value="">Select Likelihood</option>
                   {likelihoods.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.text}
-                    </option>
+                    <option key={l.value} value={l.value}>{l.text}</option>
                   ))}
                 </select>
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Updated Impact
-                </label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Updated Impact</label>
                 <select
                   value={formData.updatedImpact}
-                  onChange={(e) =>
-                    handleChange("updatedImpact", e.target.value)
-                  }
+                  onChange={(e) => handleChange("updatedImpact", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 >
                   <option value="">Select Impact</option>
                   {impacts.map((i) => (
-                    <option key={i.value} value={i.value}>
-                      {i.text}
-                    </option>
+                    <option key={i.value} value={i.value}>{i.text}</option>
                   ))}
                 </select>
               </div>
+
+              {/* Residual Score Display */}
               <div className="col-span-2 grid grid-cols-3 gap-4 bg-white p-3 rounded-lg border border-gray-200">
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Rating
-                  </label>
-                  <div
-                    className={`font-bold text-lg p-2 rounded-md ${
-                      ratingColors[residualData.rating] ||
-                      "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {residualData.rating}
-                  </div>
+                   <label className="block text-sm font-medium text-gray-500 mb-1">Rating</label>
+                   <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[residualData.rating] || "bg-gray-100 text-gray-800"}`}>
+                     {residualData.rating}
+                   </div>
                 </div>
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Score
-                  </label>
-                  <div
-                    className={`font-bold text-lg p-2 rounded-md ${
-                      ratingColors[residualData.rating] ||
-                      "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {residualData.score}
-                  </div>
+                   <label className="block text-sm font-medium text-gray-500 mb-1">Score</label>
+                   <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[residualData.rating] || "bg-gray-100 text-gray-800"}`}>
+                     {residualData.score}
+                   </div>
                 </div>
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Response
-                  </label>
-                  <div
-                    className={`font-semibold text-md p-2 rounded-md ${
-                      ratingColors[residualData.rating] ||
-                      "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {residualData.response}
-                  </div>
+                   <label className="block text-sm font-medium text-gray-500 mb-1">Response</label>
+                   <div className="font-semibold text-md p-2 rounded-md bg-gray-100 text-gray-800">
+                     {residualData.response}
+                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Section 4 */}
+            {/* --- Section 4: Tracking & Categorization --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h4 className="col-span-full text-lg font-semibold text-calpoly-gold mb-2">
                 4. Tracking & Categorization
               </h4>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Risk Category
-                  {lambdaSuggestion?.category && (
-                    <span className="ml-2 text-xs text-blue-600 font-normal">
-                      (AI Suggested: {lambdaSuggestion.category})
-                    </span>
-                  )}
                 </label>
                 <select
                   value={formData.riskCategory}
@@ -873,12 +744,12 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                 >
                   <option value="">Select Category</option>
                   {riskCategories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
+              
+              {/* Updated Status Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Status
@@ -890,12 +761,63 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                 >
                   <option value="">Select Status</option>
                   {statuses.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
+                     <option key={s} value={s}>{s}</option>
                   ))}
+                  <option value="Tolerable">TOLERABLE (Risk Accepted)</option>
                 </select>
+                
+                {/* Conditional Tolerance Level */}
+                {formData.status === "Tolerable" && (
+                   <div className="mt-2">
+                      <select 
+                         value={formData.statusTolerance}
+                         onChange={(e) => handleChange("statusTolerance", e.target.value)}
+                         className="w-full bg-orange-50 border border-orange-200 text-sm rounded px-2 py-1"
+                      >
+                         <option value="">Select Tolerance Level...</option>
+                         <option value="Monitor">Broadly Acceptable (Monitor)</option>
+                         <option value="ALARP">Tolerable (ALARP)</option>
+                         <option value="Critical">Critical Acceptance (Exec Approval)</option>
+                      </select>
+                   </div>
+                )}
               </div>
+
+              {/* Resource Requirements Buckets (Moved Here) */}
+              <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-3 rounded border border-gray-200 mt-2">
+                 <h5 className="col-span-full text-sm font-bold text-gray-700 border-b pb-1">
+                    Resource Requirements <span className="text-xs font-normal text-gray-500">(Optional)</span>
+                 </h5>
+                 
+                 <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Internal FTEs</label>
+                    <input 
+                      type="number" step="0.1" placeholder="0.0"
+                      value={formData.resourceInternalFTE}
+                      onChange={(e) => handleChange("resourceInternalFTE", e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">External Resources</label>
+                    <input 
+                      type="text" placeholder="Consultants"
+                      value={formData.resourceExternal}
+                      onChange={(e) => handleChange("resourceExternal", e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Funding ($)</label>
+                    <input 
+                      type="number" placeholder="0"
+                      value={formData.resourceFunding}
+                      onChange={(e) => handleChange("resourceFunding", e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                 </div>
+              </div>
+              
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Point of Contact for Status
@@ -904,23 +826,10 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                   type="text"
                   value={formData.statusPoc}
                   onChange={(e) => handleChange("statusPoc", e.target.value)}
-                  placeholder="e.g., Jane Doe, Project Manager"
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-              <div className="col-span-full">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Resources Needed
-                </label>
-                <textarea
-                  rows="3"
-                  value={formData.resourcesNeeded}
-                  onChange={(e) =>
-                    handleChange("resourcesNeeded", e.target.value)
-                  }
-                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-                />
-              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   College/Unit Leadership Comments
@@ -928,24 +837,68 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                 <textarea
                   rows="3"
                   value={formData.leadershipComments}
-                  onChange={(e) =>
-                    handleChange("leadershipComments", e.target.value)
-                  }
+                  onChange={(e) => handleChange("leadershipComments", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  ERM Comments
-                </label>
-                <textarea
-                  rows="3"
-                  value={formData.ermComments}
-                  onChange={(e) => handleChange("ermComments", e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-                />
+
+              {/* ERM & EHS Comments */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 col-span-full">
+                 <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">ERM Comments</label>
+                    <textarea
+                      rows="3"
+                      value={formData.ermComments}
+                      onChange={(e) => handleChange("ermComments", e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-sm font-medium text-calpoly-green mb-1 flex items-center">
+                       <Sparkles className="w-3 h-3 mr-1" /> EHS Comments (Env. Health & Safety)
+                    </label>
+                    <textarea
+                      rows="3"
+                      value={formData.ehsComments}
+                      onChange={(e) => handleChange("ehsComments", e.target.value)}
+                      className="w-full bg-green-50 border border-green-200 rounded-md shadow-sm px-3 py-2"
+                      placeholder="Safety protocols, PPE requirements..."
+                    />
+                 </div>
               </div>
             </div>
+
+            {/* --- Privacy & Verification Flags (Updated) --- */}
+            <div className="mt-4 flex flex-col md:flex-row gap-4">
+               {/* Privacy Toggle */}
+               <label className="flex items-center cursor-pointer p-3 bg-gray-100 rounded border border-gray-200 hover:bg-gray-200 transition">
+                  <input 
+                     type="checkbox"
+                     checked={formData.isPrivate}
+                     onChange={(e) => handleChange("isPrivate", e.target.checked)}
+                     className="h-4 w-4 text-calpoly-green rounded"
+                  />
+                  <div className="ml-2 flex items-center">
+                     <Lock className="w-4 h-4 text-gray-500 mr-2" />
+                     <span className="text-sm font-semibold text-gray-700">Mark as Private / Confidential</span>
+                  </div>
+               </label>
+
+               {/* Attorney-Client Toggle */}
+               <label className="flex items-center cursor-pointer p-3 bg-red-50 rounded border border-red-200 hover:bg-red-100 transition">
+                  <input 
+                     type="checkbox"
+                     checked={formData.isAttorneyClientPrivilege}
+                     onChange={(e) => handleChange("isAttorneyClientPrivilege", e.target.checked)}
+                     className="h-4 w-4 text-red-600 rounded"
+                  />
+                  <div className="ml-2 flex items-center">
+                     <ShieldAlert className="w-4 h-4 text-red-500 mr-2" />
+                     <span className="text-sm font-bold text-red-700">Attorney-Client Privilege</span>
+                  </div>
+               </label>
+            </div>
+
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
