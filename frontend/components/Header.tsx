@@ -41,18 +41,9 @@ const Header: React.FC<HeaderProps> = ({ onLoadDemo, onAddNew }) => {
           >
             Heat Map
           </button>
-          <button
-            id="btn-analytics-view"
-            className="px-3 py-1 text-sm font-semibold rounded-md text-gray-600"
-            onClick={() =>
-              window.dispatchEvent(
-                new CustomEvent("viewChange", { detail: "analytics" })
-              )
-            }
-          >
-            Analytics
-          </button>
+          {/* Analytics button removed  */}
         </div>
+        
         <Link
           href="/dashboard"
           className="flex items-center bg-white hover:bg-gray-50 text-calpoly-green font-bold py-2 px-4 rounded-lg transition duration-300 border border-calpoly-green/30"

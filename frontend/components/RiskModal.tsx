@@ -48,7 +48,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     statusPoc: "",
     riskCategory: "",
     
-    // Resource Buckets (Moved to Section 4)
+    // Resource Buckets (Section 4 - Optional)
     resourceInternalFTE: "",
     resourceExternal: "",
     resourceFunding: "",
@@ -59,13 +59,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     ermComments: "",
     ehsComments: "", 
     
-    // Privacy Flags (New)
+    // Privacy Flags
     isPrivate: false,
     isAttorneyClientPrivilege: false,
-    // Removed isVerified (no longer mandatory)
   });
 
-  // ... (AI & Helper States remain the same) ...
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [mitigationStrategies, setMitigationStrategies] = useState<MitigationStrategy[]>([]);
@@ -79,6 +77,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
   const [isLoadingLambda, setIsLoadingLambda] = useState(false);
   const [lambdaError, setLambdaError] = useState<string | null>(null);
   const lambdaCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   const [baselineData, setBaselineData] = useState({
     score: "-",
     rating: "-",
@@ -159,7 +158,6 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     setLambdaError(null);
   }, [risk, isOpen]);
 
-  // ... (Calculations & Effects remain the same) ...
   useEffect(() => {
     if (isOpen) {
       updateCalculations();
@@ -279,7 +277,6 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // removed mandatory verification check
     onSave({ ...formData, id: risk?.id || `risk_${new Date().getTime()}` });
     onClose();
   };
@@ -405,10 +402,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               
               <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk ID No.
+                  Risk ID No. <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={formData.riskIdNo}
                   onChange={(e) => handleChange("riskIdNo", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -444,10 +442,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                     <span className="text-gray-900 font-medium">Administrative Unit</span>
                   </label>
                   
-                  {/* Conditional Dropdowns with COMPREHENSIVE Cal Poly Data */}
+                  {/* Conditional Dropdowns */}
                   <div className="flex-grow">
                     {formData.orgType === "college" ? (
                       <select
+                        required
                         value={formData.college}
                         onChange={(e) => handleChange("college", e.target.value)}
                         className="w-full border border-gray-300 rounded-md px-3 py-1"
@@ -463,6 +462,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                       </select>
                     ) : (
                       <select
+                        required
                         value={formData.unit}
                         onChange={(e) => handleChange("unit", e.target.value)}
                         className="w-full border border-gray-300 rounded-md px-3 py-1"
@@ -501,10 +501,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
 
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Specific Department
+                  Specific Department <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={formData.department}
                   onChange={(e) => handleChange("department", e.target.value)}
                   placeholder="e.g. Civil Engineering"
@@ -514,10 +515,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Owner
+                  Owner <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={formData.owner}
                   onChange={(e) => handleChange("owner", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -526,10 +528,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk Description
+                  Risk Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows="3"
+                  required
                   value={formData.risk}
                   onChange={(e) => handleChange("risk", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -538,10 +541,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk Analysis
+                  Risk Analysis <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows="3"
+                  required
                   value={formData.riskAnalysis}
                   onChange={(e) => handleChange("riskAnalysis", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -573,10 +577,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               </h4>
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Current Control Measures
+                  Current Control Measures <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows="3"
+                  required
                   value={formData.currentControls}
                   onChange={(e) =>
                     handleChange("currentControls", e.target.value)
@@ -590,9 +595,10 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Likelihood
+                  Likelihood <span className="text-red-500">*</span>
                 </label>
                 <select
+                  required
                   value={formData.likelihood}
                   onChange={(e) => handleChange("likelihood", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -606,13 +612,14 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1 flex items-center">
-                  Impact
+                  Impact <span className="text-red-500">*</span>
                   <span className="tooltip ml-2">
                     <HelpCircle className="w-4 h-4 text-gray-400" />
                     <span className="tooltiptext" dangerouslySetInnerHTML={{ __html: impactTooltipContent }} />
                   </span>
                 </label>
                 <select
+                  required
                   value={formData.impact}
                   onChange={(e) => handleChange("impact", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -665,10 +672,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Additional Control Measures
+                  Additional Control Measures <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows="4"
+                  required
                   value={formData.additionalControls}
                   onChange={(e) => handleChange("additionalControls", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -677,8 +685,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Updated Likelihood</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Updated Likelihood <span className="text-red-500">*</span>
+                </label>
                 <select
+                  required
                   value={formData.updatedLikelihood}
                   onChange={(e) => handleChange("updatedLikelihood", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -691,8 +702,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Updated Impact</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Updated Impact <span className="text-red-500">*</span>
+                </label>
                 <select
+                  required
                   value={formData.updatedImpact}
                   onChange={(e) => handleChange("updatedImpact", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -735,9 +749,10 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk Category
+                  Risk Category <span className="text-red-500">*</span>
                 </label>
                 <select
+                  required
                   value={formData.riskCategory}
                   onChange={(e) => handleChange("riskCategory", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -752,9 +767,10 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               {/* Updated Status Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Status
+                  Status <span className="text-red-500">*</span>
                 </label>
                 <select
+                  required
                   value={formData.status}
                   onChange={(e) => handleChange("status", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -783,7 +799,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                 )}
               </div>
 
-              {/* Resource Requirements Buckets (Moved Here) */}
+              {/* Resource Requirements Buckets (Moved Here - Optional) */}
               <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-3 rounded border border-gray-200 mt-2">
                  <h5 className="col-span-full text-sm font-bold text-gray-700 border-b pb-1">
                     Resource Requirements <span className="text-xs font-normal text-gray-500">(Optional)</span>
