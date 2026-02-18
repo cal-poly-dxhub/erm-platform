@@ -60,6 +60,12 @@ const Header: React.FC<HeaderProps> = ({ onLoadDemo, onAddNew }) => {
           <BarChart3 className="w-5 h-5 mr-2" />
           Dashboard
         </Link>
+        <Link
+          href="/api/auth/logout"
+          className="flex items-center bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg transition duration-300 border border-gray-300"
+        >
+          Sign Out
+        </Link>
         <button
           onClick={onLoadDemo}
           className="flex items-center bg-calpoly-gold hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300"

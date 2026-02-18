@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readSession } from "@/lib/auth/session";
 
 const MITIGATION_LAMBDA_API_URL = process.env.MITIGATION_LAMBDA_API_URL || "";
 
@@ -15,6 +16,11 @@ export interface MitigationStrategyRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = readSession(request);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!MITIGATION_LAMBDA_API_URL || MITIGATION_LAMBDA_API_URL === "") {
       return NextResponse.json(
         { error: "Mitigation Lambda API URL not configured" },

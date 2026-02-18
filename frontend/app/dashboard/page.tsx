@@ -28,6 +28,7 @@ type ApiRisk = {
   status: string | null;
   resources_needed: string | null;
   additional_comments: string | null;
+  [key: string]: string | number | null | undefined;
 };
 
 type FilterState = {
@@ -36,6 +37,14 @@ type FilterState = {
   status: string;
   owner: string;
   unit: string;
+};
+
+type AuthUser = {
+  sub: string;
+  email?: string;
+  name?: string;
+  username?: string;
+  groups: string[];
 };
 
 const API_URL = "/api/erm-dashboard-results";
@@ -74,10 +83,58 @@ const buildBins = (values: number[]) => {
   }));
 };
 
+const COLUMN_PRIORITY = [
+  "id",
+  "risk_id",
+  "unit",
+  "department",
+  "owner",
+  "risk_description",
+  "risk_analysis",
+  "category",
+  "current_controls",
+  "baseline_likelihood",
+  "baseline_impact",
+  "baseline_risk_rating",
+  "mitigation_strategies",
+  "updated_likelihood",
+  "updated_impact",
+  "residual_risk_rating",
+  "status",
+  "approved",
+  "funding_required",
+  "risk_tolerance",
+  "risk_visibility",
+  "internal_resources",
+  "external_resources",
+  "resources_needed",
+  "additional_comments",
+  "risk_creation_at",
+];
+
+const formatColumnLabel = (key: string) =>
+  key
+    .split("_")
+    .map((part) =>
+      part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part
+    )
+    .join(" ");
+
+const formatCellValue = (value: string | number | null | undefined) => {
+  if (value === null || value === undefined) return "--";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : "--";
+  }
+  return value;
+};
+
 export default function DashboardPage() {
   const [risks, setRisks] = useState<ApiRisk[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [limit, setLimit] = useState(75);
   const [semanticQuery, setSemanticQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>({
@@ -108,6 +165,35 @@ export default function DashboardPage() {
           limit: nextLimit,
         }),
       });
+      if (response.status === 401) {
+        window.location.href = "/login?returnTo=/dashboard";
+        return;
+      }
+      if (response.status === 403) {
+        let detail = "";
+        try {
+          const text = await response.text();
+          if (text) {
+            try {
+              const parsed = JSON.parse(text);
+              detail =
+                parsed?.error ||
+                parsed?.message ||
+                parsed?.error_description ||
+                "";
+            } catch {
+              detail = text;
+            }
+          }
+        } catch {
+          // ignore parse errors and fall back to generic detail
+        }
+        throw new Error(
+          detail
+            ? `Dashboard API returned 403: ${detail}`
+            : "Dashboard API returned 403 (forbidden)."
+        );
+      }
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
@@ -127,7 +213,38 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchRisks();
+    const initialize = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (response.status === 401) {
+          window.location.href = "/login?returnTo=/dashboard";
+          return;
+        }
+        if (response.status === 403) {
+          setError("Signed in, but you do not have dashboard access.");
+          setLoading(false);
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`Auth error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setUser((data?.user as AuthUser | undefined) || null);
+        await fetchRisks();
+      } catch (authError) {
+        setLoading(false);
+        setError(
+          authError instanceof Error
+            ? authError.message
+            : "Unable to verify session."
+        );
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    initialize();
   }, []);
 
   const analytics = useMemo(() => {
@@ -212,6 +329,24 @@ export default function DashboardPage() {
     };
   }, [risks]);
 
+  const tableColumns = useMemo(() => {
+    if (risks.length === 0) {
+      return COLUMN_PRIORITY;
+    }
+
+    const discovered = new Set<string>();
+    risks.forEach((risk) => {
+      Object.keys(risk).forEach((key) => discovered.add(key));
+    });
+
+    const priorityColumns = COLUMN_PRIORITY.filter((key) => discovered.has(key));
+    const additionalColumns = Array.from(discovered)
+      .filter((key) => !COLUMN_PRIORITY.includes(key))
+      .sort((a, b) => a.localeCompare(b));
+
+    return [...priorityColumns, ...additionalColumns];
+  }, [risks]);
+
   const handleApplyFilters = () => {
     fetchRisks(filters, limit, semanticQuery);
   };
@@ -244,8 +379,19 @@ export default function DashboardPage() {
               Live view of residual risk exposure, ownership, and mitigation
               priorities.
             </p>
+            {user && (
+              <p className="mt-2 text-xs text-gray-500">
+                Signed in as {user.name || user.email || user.username || user.sub}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/api/auth/logout"
+              className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+            >
+              Sign Out
+            </Link>
             <Link
               href="/"
               className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
@@ -439,6 +585,11 @@ export default function DashboardPage() {
             Unable to load data from the dashboard API. {error}
           </section>
         )}
+        {authLoading && (
+          <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
+            Checking authentication...
+          </section>
+        )}
 
         <section className="mt-8 grid gap-6 lg:grid-cols-3">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -596,89 +747,34 @@ export default function DashboardPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-left text-xs uppercase tracking-wide text-gray-500">
                 <tr>
-                  <th className="px-3 py-2">Risk ID</th>
-                  <th className="px-3 py-2">Unit</th>
-                  <th className="px-3 py-2">Department</th>
-                  <th className="px-3 py-2">Owner</th>
-                  <th className="px-3 py-2">Risk Description</th>
-                  <th className="px-3 py-2">Risk Analysis</th>
-                  <th className="px-3 py-2">Category</th>
-                  <th className="px-3 py-2">Current Controls</th>
-                  <th className="px-3 py-2">Baseline Likelihood</th>
-                  <th className="px-3 py-2">Baseline Impact</th>
-                  <th className="px-3 py-2">Baseline Risk Rating</th>
-                  <th className="px-3 py-2">Mitigation Strategies</th>
-                  <th className="px-3 py-2">Updated Likelihood</th>
-                  <th className="px-3 py-2">Updated Impact</th>
-                  <th className="px-3 py-2">Residual Risk Rating</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Resources Needed</th>
-                  <th className="px-3 py-2">Additional Comments</th>
+                  {tableColumns.map((column) => (
+                    <th key={column} className="px-3 py-2">
+                      {formatColumnLabel(column)}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {risks.slice(0, 10).map((risk, index) => (
-                  <tr key={risk.risk_id || `row-${index}`}>
-                    <td className="px-3 py-2 font-medium text-gray-800">
-                      {normalizeKey(risk.risk_id, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.unit, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.department, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.owner, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.risk_description, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.risk_analysis, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.category, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.current_controls, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {risk.baseline_likelihood ?? "--"}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {risk.baseline_impact ?? "--"}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {risk.baseline_risk_rating ?? "--"}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.mitigation_strategies, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {risk.updated_likelihood ?? "--"}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {risk.updated_impact ?? "--"}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {risk.residual_risk_rating ?? "--"}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.status, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.resources_needed, "N/A")}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {normalizeKey(risk.additional_comments, "N/A")}
-                    </td>
+                  <tr key={String(risk.risk_id || `row-${index}`)}>
+                    {tableColumns.map((column, columnIndex) => (
+                      <td
+                        key={`${column}-${index}`}
+                        className={`px-3 py-2 ${
+                          columnIndex === 0
+                            ? "font-medium text-gray-800"
+                            : "text-gray-600"
+                        }`}
+                      >
+                        {formatCellValue(risk[column])}
+                      </td>
+                    ))}
                   </tr>
                 ))}
                 {!loading && risks.length === 0 && (
                   <tr>
                     <td
-                      colSpan={18}
+                      colSpan={tableColumns.length || 1}
                       className="px-3 py-6 text-center text-gray-500"
                     >
                       No results returned for the selected filters.

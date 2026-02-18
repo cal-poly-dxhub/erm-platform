@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readSession } from "@/lib/auth/session";
 
 const LAMBDA_API_URL = process.env.LAMBDA_API_URL || "";
 
@@ -11,6 +12,11 @@ export interface LambdaRiskRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = readSession(request);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!LAMBDA_API_URL || LAMBDA_API_URL === "") {
       return NextResponse.json(
         { error: "Lambda API URL not configured" },
