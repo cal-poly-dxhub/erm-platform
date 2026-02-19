@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowDownUp,
+  ClipboardCheck,
   RefreshCcw,
   ShieldCheck,
 } from "lucide-react";
@@ -28,7 +29,9 @@ type ApiRisk = {
   status: string | null;
   resources_needed: string | null;
   additional_comments: string | null;
-  [key: string]: string | number | null | undefined;
+  approval_status?: "pending" | "approved" | "rejected" | null;
+  rejection_reason?: string | null;
+  [key: string]: string | number | boolean | null | undefined;
 };
 
 type FilterState = {
@@ -79,7 +82,8 @@ const buildBins = (values: number[]) => {
   ];
   return bins.map((bin) => ({
     label: bin.label,
-    count: values.filter((value) => value >= bin.min && value <= bin.max).length,
+    count: values.filter((value) => value >= bin.min && value <= bin.max)
+      .length,
   }));
 };
 
@@ -116,12 +120,15 @@ const formatColumnLabel = (key: string) =>
   key
     .split("_")
     .map((part) =>
-      part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part
+      part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part,
     )
     .join(" ");
 
-const formatCellValue = (value: string | number | null | undefined) => {
+const formatCellValue = (
+  value: string | number | boolean | null | undefined,
+) => {
   if (value === null || value === undefined) return "--";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed ? trimmed : "--";
@@ -145,16 +152,21 @@ export default function DashboardPage() {
     unit: "",
   });
 
+  const approvedRisks = useMemo(
+    () => risks.filter((r) => r.approval_status === "approved"),
+    [risks],
+  );
+
   const fetchRisks = async (
     nextFilters = filters,
     nextLimit = limit,
-    nextSemanticQuery = semanticQuery
+    nextSemanticQuery = semanticQuery,
   ) => {
     setLoading(true);
     setError(null);
     try {
       const payloadFilters = Object.fromEntries(
-        Object.entries(nextFilters).filter(([, value]) => value.trim())
+        Object.entries(nextFilters).filter(([, value]) => value.trim()),
       );
       const response = await fetch(API_URL, {
         method: "POST",
@@ -191,7 +203,7 @@ export default function DashboardPage() {
         throw new Error(
           detail
             ? `Dashboard API returned 403: ${detail}`
-            : "Dashboard API returned 403 (forbidden)."
+            : "Dashboard API returned 403 (forbidden).",
         );
       }
       if (!response.ok) {
@@ -205,7 +217,7 @@ export default function DashboardPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "Unable to load dashboard data."
+          : "Unable to load dashboard data.",
       );
     } finally {
       setLoading(false);
@@ -237,7 +249,7 @@ export default function DashboardPage() {
         setError(
           authError instanceof Error
             ? authError.message
-            : "Unable to verify session."
+            : "Unable to verify session.",
         );
       } finally {
         setAuthLoading(false);
@@ -248,39 +260,40 @@ export default function DashboardPage() {
   }, []);
 
   const analytics = useMemo(() => {
-    const residualValues = risks
+    const residualValues = approvedRisks
       .map((risk) => toNumber(risk.residual_risk_rating))
       .filter((value): value is number => value !== null);
     const avgResidual =
       residualValues.length > 0
-        ? (residualValues.reduce((sum, value) => sum + value, 0) /
+        ? (
+            residualValues.reduce((sum, value) => sum + value, 0) /
             residualValues.length
           ).toFixed(1)
         : "0.0";
-    const maxResidual = residualValues.length
-      ? Math.max(...residualValues)
-      : 0;
+    const maxResidual = residualValues.length ? Math.max(...residualValues) : 0;
     const highResidualCount = residualValues.filter(
-      (value) => value >= HIGH_RISK_THRESHOLD
+      (value) => value >= HIGH_RISK_THRESHOLD,
     ).length;
-    const openCount = risks.filter((risk) => {
+    const openCount = approvedRisks.filter((risk) => {
       const status = (risk.status || "").toLowerCase();
-      return status && !status.includes("closed") && !status.includes("resolved");
+      return (
+        status && !status.includes("closed") && !status.includes("resolved")
+      );
     }).length;
 
-    const statusCounts = groupCounts(risks, (risk) =>
-      normalizeKey(risk.status, "Unspecified")
+    const statusCounts = groupCounts(approvedRisks, (risk) =>
+      normalizeKey(risk.status, "Unspecified"),
     ).slice(0, 5);
-    const categoryCounts = groupCounts(risks, (risk) =>
-      normalizeKey(risk.category, "Uncategorized")
+    const categoryCounts = groupCounts(approvedRisks, (risk) =>
+      normalizeKey(risk.category, "Uncategorized"),
     ).slice(0, 6);
-    const unitCounts = groupCounts(risks, (risk) =>
-      normalizeKey(risk.unit, "Unassigned")
+    const unitCounts = groupCounts(approvedRisks, (risk) =>
+      normalizeKey(risk.unit, "Unassigned"),
     ).slice(0, 5);
 
     const bins = buildBins(residualValues);
 
-    const topRisks = [...risks]
+    const topRisks = [...approvedRisks]
       .sort((a, b) => {
         const aScore = toNumber(a.residual_risk_rating) ?? -1;
         const bScore = toNumber(b.residual_risk_rating) ?? -1;
@@ -300,7 +313,7 @@ export default function DashboardPage() {
       bins,
       topRisks,
     };
-  }, [risks]);
+  }, [approvedRisks]);
 
   const updateFilter = (key: keyof FilterState, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -308,10 +321,13 @@ export default function DashboardPage() {
 
   const filterOptions = useMemo(() => {
     const getDistinctValues = (
-      key: keyof Pick<ApiRisk, "department" | "category" | "status" | "owner" | "unit">
+      key: keyof Pick<
+        ApiRisk,
+        "department" | "category" | "status" | "owner" | "unit"
+      >,
     ) => {
       const values = new Set<string>();
-      risks.forEach((risk) => {
+      approvedRisks.forEach((risk) => {
         const raw = risk[key];
         if (raw && raw.trim()) {
           values.add(raw.trim());
@@ -327,25 +343,27 @@ export default function DashboardPage() {
       owner: getDistinctValues("owner"),
       unit: getDistinctValues("unit"),
     };
-  }, [risks]);
+  }, [approvedRisks]);
 
   const tableColumns = useMemo(() => {
-    if (risks.length === 0) {
+    if (approvedRisks.length === 0) {
       return COLUMN_PRIORITY;
     }
 
     const discovered = new Set<string>();
-    risks.forEach((risk) => {
+    approvedRisks.forEach((risk) => {
       Object.keys(risk).forEach((key) => discovered.add(key));
     });
 
-    const priorityColumns = COLUMN_PRIORITY.filter((key) => discovered.has(key));
+    const priorityColumns = COLUMN_PRIORITY.filter((key) =>
+      discovered.has(key),
+    );
     const additionalColumns = Array.from(discovered)
       .filter((key) => !COLUMN_PRIORITY.includes(key))
       .sort((a, b) => a.localeCompare(b));
 
     return [...priorityColumns, ...additionalColumns];
-  }, [risks]);
+  }, [approvedRisks]);
 
   const handleApplyFilters = () => {
     fetchRisks(filters, limit, semanticQuery);
@@ -381,11 +399,21 @@ export default function DashboardPage() {
             </p>
             {user && (
               <p className="mt-2 text-xs text-gray-500">
-                Signed in as {user.name || user.email || user.username || user.sub}
+                Signed in as{" "}
+                {user.name || user.email || user.username || user.sub}
               </p>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {user?.groups?.includes("admin") && (
+              <Link
+                href="/dashboard/admin/review"
+                className="inline-flex items-center rounded-lg border border-calpoly-gold bg-calpoly-gold/10 px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-calpoly-gold/20"
+              >
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                Admin Review
+              </Link>
+            )}
             <Link
               href="/api/auth/logout"
               className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
@@ -445,7 +473,9 @@ export default function DashboardPage() {
           <div className="mt-4 grid gap-4 md:grid-cols-5">
             <select
               value={filters.department}
-              onChange={(event) => updateFilter("department", event.target.value)}
+              onChange={(event) =>
+                updateFilter("department", event.target.value)
+              }
               className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
             >
               <option value="">All Departments</option>
@@ -542,7 +572,7 @@ export default function DashboardPage() {
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-gray-500">Total Risks</p>
             <p className="mt-3 text-3xl font-bold text-calpoly-green">
-              {loading ? "--" : risks.length}
+              {loading ? "--" : approvedRisks.length}
             </p>
             <p className="mt-2 text-xs text-gray-400">Records returned</p>
           </div>
@@ -598,8 +628,8 @@ export default function DashboardPage() {
             </h3>
             <div className="mt-4 space-y-3">
               {analytics.statusCounts.map(([status, count]) => {
-                const width = risks.length
-                  ? Math.round((count / risks.length) * 100)
+                const width = approvedRisks.length
+                  ? Math.round((count / approvedRisks.length) * 100)
                   : 0;
                 return (
                   <div key={status}>
@@ -652,8 +682,8 @@ export default function DashboardPage() {
             </h3>
             <div className="mt-4 space-y-3">
               {analytics.bins.map((bin) => {
-                const width = risks.length
-                  ? Math.round((bin.count / risks.length) * 100)
+                const width = approvedRisks.length
+                  ? Math.round((bin.count / approvedRisks.length) * 100)
                   : 0;
                 return (
                   <div key={bin.label}>
@@ -755,7 +785,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {risks.slice(0, 10).map((risk, index) => (
+                {approvedRisks.slice(0, 10).map((risk, index) => (
                   <tr key={String(risk.risk_id || `row-${index}`)}>
                     {tableColumns.map((column, columnIndex) => (
                       <td
@@ -771,7 +801,7 @@ export default function DashboardPage() {
                     ))}
                   </tr>
                 ))}
-                {!loading && risks.length === 0 && (
+                {!loading && approvedRisks.length === 0 && (
                   <tr>
                     <td
                       colSpan={tableColumns.length || 1}

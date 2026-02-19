@@ -19,6 +19,10 @@ export interface Risk {
   resourcesNeeded?: string;
   leadershipComments?: string;
   ermComments?: string;
+  /** Approval state: "pending" | "approved" | "rejected". Only "approved" appears in dashboard analytics. */
+  approvalStatus?: "pending" | "approved" | "rejected";
+  /** Set when an admin rejects the risk; visible only to admins. */
+  rejectionReason?: string;
 }
 
 export interface Likelihood {
@@ -43,4 +47,3 @@ export interface RiskData {
   rating: string;
   response: string;
 }
-
