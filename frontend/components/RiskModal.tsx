@@ -11,10 +11,7 @@ import { getRiskData } from "@/utils/riskCalculations";
 import { analyzeTextForSuggestions } from "@/utils/aiSuggestions";
 import { generateMitigationSteps } from "@/utils/gemini";
 import { assessRisk } from "@/utils/lambdaApi";
-import {
-  generateMitigationStrategies,
-  MitigationStrategy,
-} from "@/utils/mitigationApi";
+import { generateMitigationStrategies, MitigationStrategy } from "@/utils/mitigationApi";
 import { Risk } from "@/types";
 
 interface RiskModalProps {
@@ -22,31 +19,19 @@ interface RiskModalProps {
   onClose: () => void;
   risk: Risk | null;
   onSave: (riskData: Risk) => void;
-  /** When true, show Approve and Reject buttons for admin review. */
-  isAdminReview?: boolean;
-  onApprove?: () => void;
-  onReject?: (rejectionReason: string) => void;
 }
 
-const RiskModal: React.FC<RiskModalProps> = ({
-  isOpen,
-  onClose,
-  risk,
-  onSave,
-  isAdminReview,
-  onApprove,
-  onReject,
-}) => {
+const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) => {
   const [formData, setFormData] = useState({
     riskIdNo: "",
-
+    
     // Organization Scope
-    orgType: "college",
+    orgType: "college", 
     college: "",
     unit: "",
     department: "",
     isCollegeWide: false,
-
+    
     owner: "",
     risk: "",
     riskAnalysis: "",
@@ -56,24 +41,27 @@ const RiskModal: React.FC<RiskModalProps> = ({
     additionalControls: "",
     updatedLikelihood: "",
     updatedImpact: "",
-
+    
     // Status Logic
     status: "",
     statusTolerance: "",
     statusPoc: "",
     riskCategory: "",
-
+    
+    // NEW: Risk Tolerance Logic
+    departmentRiskTolerance: "",
+    
     // Resource Buckets (Section 4 - Optional)
     resourceInternalFTE: "",
     resourceExternal: "",
     resourceFunding: "",
-    resourcesNeeded: "",
-
+    resourcesNeeded: "", 
+    
     // Comments
     leadershipComments: "",
     ermComments: "",
-    ehsComments: "",
-
+    ehsComments: "", 
+    
     // Privacy Flags
     isPrivate: false,
     isAttorneyClientPrivilege: false,
@@ -81,9 +69,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
 
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [mitigationStrategies, setMitigationStrategies] = useState<
-    MitigationStrategy[]
-  >([]);
+  const [mitigationStrategies, setMitigationStrategies] = useState<MitigationStrategy[]>([]);
   const [lambdaSuggestion, setLambdaSuggestion] = useState<{
     category?: string;
     likelihood?: number;
@@ -94,16 +80,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
   const [isLoadingLambda, setIsLoadingLambda] = useState(false);
   const [lambdaError, setLambdaError] = useState<string | null>(null);
   const lambdaCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
-  const [showRejectInput, setShowRejectInput] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setShowRejectInput(false);
-      setRejectReason("");
-    }
-  }, [isOpen]);
-
+  
   const [baselineData, setBaselineData] = useState({
     score: "-",
     rating: "-",
@@ -137,6 +114,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
         statusTolerance: risk.statusTolerance || "",
         statusPoc: risk.statusPoc || "",
         riskCategory: risk.riskCategory || "",
+        departmentRiskTolerance: risk.departmentRiskTolerance || "", // Hydrate new field
         resourceInternalFTE: risk.resourceInternalFTE || "",
         resourceExternal: risk.resourceExternal || "",
         resourceFunding: risk.resourceFunding || "",
@@ -168,6 +146,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
         statusTolerance: "",
         statusPoc: "",
         riskCategory: "",
+        departmentRiskTolerance: "", // Reset new field
         resourceInternalFTE: "",
         resourceExternal: "",
         resourceFunding: "",
@@ -199,7 +178,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
   useEffect(() => {
     const suggestion = analyzeTextForSuggestions(
       formData.risk,
-      formData.riskAnalysis,
+      formData.riskAnalysis
     );
     setAiSuggestion(suggestion);
   }, [formData.risk, formData.riskAnalysis]);
@@ -207,8 +186,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
   // Call Lambda to get category suggestion
   useEffect(() => {
     if (!isOpen) return;
-    if (lambdaCallTimeoutRef.current)
-      clearTimeout(lambdaCallTimeoutRef.current);
+    if (lambdaCallTimeoutRef.current) clearTimeout(lambdaCallTimeoutRef.current);
 
     if (formData.department && formData.risk && formData.riskAnalysis) {
       lambdaCallTimeoutRef.current = setTimeout(async () => {
@@ -218,7 +196,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
           const response = await assessRisk(
             formData.department,
             formData.risk,
-            formData.riskAnalysis,
+            formData.riskAnalysis
           );
           setLambdaSuggestion((prev) => ({
             ...prev,
@@ -227,39 +205,24 @@ const RiskModal: React.FC<RiskModalProps> = ({
             similar: response.similar,
           }));
           if (response.category && !formData.riskCategory) {
-            setFormData((prev) => ({
-              ...prev,
-              riskCategory: response.category || "",
-            }));
+            setFormData((prev) => ({ ...prev, riskCategory: response.category || "" }));
           }
         } catch (error) {
-          setLambdaError(
-            error instanceof Error
-              ? error.message
-              : "Failed to get suggestions",
-          );
+          setLambdaError(error instanceof Error ? error.message : "Failed to get suggestions");
         } finally {
           setIsLoadingLambda(false);
         }
       }, 1000);
     }
     return () => {
-      if (lambdaCallTimeoutRef.current)
-        clearTimeout(lambdaCallTimeoutRef.current);
+      if (lambdaCallTimeoutRef.current) clearTimeout(lambdaCallTimeoutRef.current);
     };
-  }, [
-    formData.department,
-    formData.risk,
-    formData.riskAnalysis,
-    isOpen,
-    formData.riskCategory,
-  ]);
+  }, [formData.department, formData.risk, formData.riskAnalysis, isOpen, formData.riskCategory]);
 
   // Call Lambda to get baseline likelihood and impact
   useEffect(() => {
     if (!isOpen) return;
-    if (lambdaCallTimeoutRef.current)
-      clearTimeout(lambdaCallTimeoutRef.current);
+    if (lambdaCallTimeoutRef.current) clearTimeout(lambdaCallTimeoutRef.current);
 
     if (
       formData.department &&
@@ -275,7 +238,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
             formData.department,
             formData.risk,
             formData.riskAnalysis,
-            formData.currentControls,
+            formData.currentControls
           );
           setLambdaSuggestion((prev) => ({
             ...prev,
@@ -285,54 +248,31 @@ const RiskModal: React.FC<RiskModalProps> = ({
             notes: response.notes,
             similar: response.similar,
           }));
-          if (
-            response.likelihood !== undefined &&
-            response.likelihood !== null
-          ) {
-            setFormData((prev) => ({
-              ...prev,
-              likelihood: String(response.likelihood),
-            }));
+          if (response.likelihood !== undefined && response.likelihood !== null) {
+            setFormData((prev) => ({ ...prev, likelihood: String(response.likelihood) }));
           }
           if (response.impact !== undefined && response.impact !== null) {
-            setFormData((prev) => ({
-              ...prev,
-              impact: String(response.impact),
-            }));
+            setFormData((prev) => ({ ...prev, impact: String(response.impact) }));
           }
           if (response.category && !formData.riskCategory) {
-            setFormData((prev) => ({
-              ...prev,
-              riskCategory: response.category || "",
-            }));
+            setFormData((prev) => ({ ...prev, riskCategory: response.category || "" }));
           }
         } catch (error) {
-          setLambdaError(
-            error instanceof Error
-              ? error.message
-              : "Failed to get risk assessment",
-          );
+          setLambdaError(error instanceof Error ? error.message : "Failed to get risk assessment");
         } finally {
           setIsLoadingLambda(false);
         }
       }, 1000);
     }
     return () => {
-      if (lambdaCallTimeoutRef.current)
-        clearTimeout(lambdaCallTimeoutRef.current);
+      if (lambdaCallTimeoutRef.current) clearTimeout(lambdaCallTimeoutRef.current);
     };
-  }, [
-    formData.department,
-    formData.risk,
-    formData.riskAnalysis,
-    formData.currentControls,
-    isOpen,
-  ]);
+  }, [formData.department, formData.risk, formData.riskAnalysis, formData.currentControls, isOpen]);
 
   const updateCalculations = () => {
     setBaselineData(getRiskData(formData.likelihood, formData.impact));
     setResidualData(
-      getRiskData(formData.updatedLikelihood, formData.updatedImpact),
+      getRiskData(formData.updatedLikelihood, formData.updatedImpact)
     );
   };
 
@@ -351,12 +291,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
   };
 
   const handleGenerateMitigation = async () => {
-    if (
-      !formData.risk ||
-      !formData.riskAnalysis ||
-      !formData.currentControls ||
-      !formData.riskCategory
-    ) {
+    if (!formData.risk || !formData.riskAnalysis || !formData.currentControls || !formData.riskCategory) {
       alert("Please fill in Risk, Analysis, Controls, and Category first.");
       return;
     }
@@ -367,8 +302,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
 
     setIsGenerating(true);
     try {
-      const baselineScore =
-        baselineData.score === "-" ? 0 : Number(baselineData.score);
+      const baselineScore = baselineData.score === "-" ? 0 : Number(baselineData.score);
       const response = await generateMitigationStrategies(
         formData.risk,
         formData.department || formData.college || formData.unit,
@@ -377,7 +311,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
         formData.riskCategory,
         formData.likelihood,
         formData.impact,
-        baselineScore,
+        baselineScore
       );
       const strategies = response.strategies || [];
       setMitigationStrategies(strategies);
@@ -389,12 +323,8 @@ const RiskModal: React.FC<RiskModalProps> = ({
 
       const strategiesText = strategies
         .map((strategy, index) => {
-          const typeLabel =
-            strategy.type === "Preventative"
-              ? "Preventative"
-              : strategy.type === "Detective"
-                ? "Detective"
-                : "Corrective";
+          const typeLabel = strategy.type === "Preventative" ? "Preventative" : 
+                           strategy.type === "Detective" ? "Detective" : "Corrective";
           return `${index + 1}. [${typeLabel}] ${strategy.title}\n   ${strategy.description}\n   Urgency: ${strategy.urgency}`;
         })
         .join("\n\n");
@@ -403,25 +333,15 @@ const RiskModal: React.FC<RiskModalProps> = ({
 
       if (response.residual_risk) {
         if (response.residual_risk.updated_likelihood) {
-          setFormData((prev) => ({
-            ...prev,
-            updatedLikelihood: String(
-              response.residual_risk.updated_likelihood,
-            ),
-          }));
+          setFormData((prev) => ({ ...prev, updatedLikelihood: String(response.residual_risk.updated_likelihood) }));
         }
         if (response.residual_risk.updated_impact) {
-          setFormData((prev) => ({
-            ...prev,
-            updatedImpact: String(response.residual_risk.updated_impact),
-          }));
+          setFormData((prev) => ({ ...prev, updatedImpact: String(response.residual_risk.updated_impact) }));
         }
       }
     } catch (error) {
       console.error("Error generating strategies:", error);
-      alert(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsGenerating(false);
     }
@@ -442,7 +362,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
             <li class="ml-2 text-gray-300"><strong>People:</strong> ${imp.details.people}</li>
           </ul>
         </div>
-      `,
+      `
         )
         .join("")}
     </div>
@@ -478,12 +398,13 @@ const RiskModal: React.FC<RiskModalProps> = ({
           </div>
 
           <div className="mt-4 max-h-[75vh] overflow-y-auto pr-4">
+            
             {/* --- Section 1: Risk Identification & Context --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h4 className="col-span-full text-lg font-semibold text-calpoly-gold mb-2">
                 1. Risk Identification & Context
               </h4>
-
+              
               <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Risk ID No. <span className="text-red-500">*</span>
@@ -512,9 +433,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
                       onChange={(e) => handleChange("orgType", e.target.value)}
                       className="text-calpoly-green focus:ring-calpoly-gold"
                     />
-                    <span className="text-gray-900 font-medium">
-                      Academic College
-                    </span>
+                    <span className="text-gray-900 font-medium">Academic College</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -525,44 +444,26 @@ const RiskModal: React.FC<RiskModalProps> = ({
                       onChange={(e) => handleChange("orgType", e.target.value)}
                       className="text-calpoly-green focus:ring-calpoly-gold"
                     />
-                    <span className="text-gray-900 font-medium">
-                      Administrative Unit
-                    </span>
+                    <span className="text-gray-900 font-medium">Administrative Unit</span>
                   </label>
-
+                  
                   {/* Conditional Dropdowns */}
                   <div className="flex-grow">
                     {formData.orgType === "college" ? (
                       <select
                         required
                         value={formData.college}
-                        onChange={(e) =>
-                          handleChange("college", e.target.value)
-                        }
+                        onChange={(e) => handleChange("college", e.target.value)}
                         className="w-full border border-gray-300 rounded-md px-3 py-1"
                       >
                         <option value="">-- Select College --</option>
-                        <option value="cafes">
-                          College of Agriculture, Food & Env. Sciences (CAFES)
-                        </option>
-                        <option value="caed">
-                          College of Architecture & Env. Design (CAED)
-                        </option>
-                        <option value="ocob">
-                          Orfalea College of Business (OCOB)
-                        </option>
-                        <option value="ceng">
-                          College of Engineering (CENG)
-                        </option>
-                        <option value="cla">
-                          College of Liberal Arts (CLA)
-                        </option>
-                        <option value="bcsm">
-                          Bailey College of Science & Mathematics (BCSM)
-                        </option>
-                        <option value="cpace">
-                          Extended, Professional & Continuing Education
-                        </option>
+                        <option value="cafes">College of Agriculture, Food & Env. Sciences (CAFES)</option>
+                        <option value="caed">College of Architecture & Env. Design (CAED)</option>
+                        <option value="ocob">Orfalea College of Business (OCOB)</option>
+                        <option value="ceng">College of Engineering (CENG)</option>
+                        <option value="cla">College of Liberal Arts (CLA)</option>
+                        <option value="bcsm">Bailey College of Science & Mathematics (BCSM)</option>
+                        <option value="cpace">Extended, Professional & Continuing Education</option>
                       </select>
                     ) : (
                       <select
@@ -572,62 +473,33 @@ const RiskModal: React.FC<RiskModalProps> = ({
                         className="w-full border border-gray-300 rounded-md px-3 py-1"
                       >
                         <option value="">-- Select Unit --</option>
-                        <option value="academic_affairs">
-                          Academic Affairs
-                        </option>
-                        <option value="admin_finance">
-                          Administration & Finance
-                        </option>
+                        <option value="academic_affairs">Academic Affairs</option>
+                        <option value="admin_finance">Administration & Finance</option>
                         <option value="student_affairs">Student Affairs</option>
-                        <option value="diversity">
-                          Diversity & Inclusion (OUDI)
-                        </option>
-                        <option value="research">
-                          Research & Graduate Programs
-                        </option>
-                        <option value="its">
-                          Information Technology Services (ITS)
-                        </option>
-                        <option value="facilities">
-                          Facilities Management & Development
-                        </option>
-                        <option value="public_safety">
-                          Public Safety / University Police
-                        </option>
-                        <option value="partners">
-                          Cal Poly Partners (Corporation)
-                        </option>
-                        <option value="advancement">
-                          University Development & Alumni Engagement
-                        </option>
-                        <option value="marketing">
-                          University Communications & Marketing
-                        </option>
+                        <option value="diversity">Diversity & Inclusion (OUDI)</option>
+                        <option value="research">Research & Graduate Programs</option>
+                        <option value="its">Information Technology Services (ITS)</option>
+                        <option value="facilities">Facilities Management & Development</option>
+                        <option value="public_safety">Public Safety / University Police</option>
+                        <option value="partners">Cal Poly Partners (Corporation)</option>
+                        <option value="advancement">University Development & Alumni Engagement</option>
+                        <option value="marketing">University Communications & Marketing</option>
                       </select>
                     )}
                   </div>
                 </div>
-
+                
                 {/* Cross Pollination Checkbox */}
                 <div className="mt-2 flex items-center">
                   <input
                     type="checkbox"
                     id="isCollegeWide"
                     checked={formData.isCollegeWide}
-                    onChange={(e) =>
-                      handleChange("isCollegeWide", e.target.checked)
-                    }
+                    onChange={(e) => handleChange("isCollegeWide", e.target.checked)}
                     className="h-4 w-4 text-calpoly-gold rounded border-gray-300 focus:ring-calpoly-green"
                   />
-                  <label
-                    htmlFor="isCollegeWide"
-                    className="ml-2 text-xs font-semibold text-gray-600"
-                  >
-                    This risk applies{" "}
-                    <span className="text-calpoly-green uppercase">
-                      College-Wide
-                    </span>{" "}
-                    or impacts other Units.
+                  <label htmlFor="isCollegeWide" className="ml-2 text-xs font-semibold text-gray-600">
+                    This risk applies <span className="text-calpoly-green uppercase">College-Wide</span> or impacts other Units.
                   </label>
                 </div>
               </div>
@@ -645,7 +517,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-
+              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Owner <span className="text-red-500">*</span>
@@ -658,7 +530,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-
+              
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Risk Description <span className="text-red-500">*</span>
@@ -671,7 +543,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-
+              
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Risk Analysis <span className="text-red-500">*</span>
@@ -690,16 +562,13 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 <div className="col-span-full mt-2 p-3 bg-calpoly-green/5 border-l-4 border-calpoly-green rounded-r-lg">
                   <div className="flex items-center">
                     <Sparkles className="w-5 h-5 mr-2 text-calpoly-gold" />
-                    <h5 className="font-semibold text-calpoly-green">
-                      AI Suggestions
-                    </h5>
+                    <h5 className="font-semibold text-calpoly-green">AI Suggestions</h5>
                   </div>
                   <div className="text-sm mt-2 text-gray-700 pl-7">
                     {(lambdaSuggestion?.category || aiSuggestion?.category) && (
-                      <p className="mb-1">
-                        <strong>Category:</strong>{" "}
-                        {lambdaSuggestion?.category || aiSuggestion?.category}
-                      </p>
+                       <p className="mb-1">
+                         <strong>Category:</strong> {lambdaSuggestion?.category || aiSuggestion?.category}
+                       </p>
                     )}
                   </div>
                 </div>
@@ -713,8 +582,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
               </h4>
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Current Control Measures{" "}
-                  <span className="text-red-500">*</span>
+                  Current Control Measures <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows="3"
@@ -726,12 +594,10 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
                 {isLoadingLambda && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    Analyzing controls...
-                  </p>
+                  <p className="text-xs text-blue-600 mt-1">Analyzing controls...</p>
                 )}
               </div>
-
+              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Likelihood <span className="text-red-500">*</span>
@@ -744,22 +610,17 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 >
                   <option value="">Select Likelihood</option>
                   {likelihoods.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.text}
-                    </option>
+                    <option key={l.value} value={l.value}>{l.text}</option>
                   ))}
                 </select>
               </div>
-
+              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1 flex items-center">
                   Impact <span className="text-red-500">*</span>
                   <span className="tooltip ml-2">
                     <HelpCircle className="w-4 h-4 text-gray-400" />
-                    <span
-                      className="tooltiptext"
-                      dangerouslySetInnerHTML={{ __html: impactTooltipContent }}
-                    />
+                    <span className="tooltiptext" dangerouslySetInnerHTML={{ __html: impactTooltipContent }} />
                   </span>
                 </label>
                 <select
@@ -770,9 +631,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 >
                   <option value="">Select Impact</option>
                   {impacts.map((i) => (
-                    <option key={i.value} value={i.value}>
-                      {i.text}
-                    </option>
+                    <option key={i.value} value={i.value}>{i.text}</option>
                   ))}
                 </select>
               </div>
@@ -780,29 +639,19 @@ const RiskModal: React.FC<RiskModalProps> = ({
               {/* Score Display */}
               <div className="col-span-2 grid grid-cols-3 gap-4 bg-white p-3 rounded-lg border border-gray-200">
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Rating
-                  </label>
-                  <div
-                    className={`font-bold text-lg p-2 rounded-md ${ratingColors[baselineData.rating] || "bg-gray-100 text-gray-800"}`}
-                  >
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Rating</label>
+                  <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[baselineData.rating] || "bg-gray-100 text-gray-800"}`}>
                     {baselineData.rating}
                   </div>
                 </div>
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Score
-                  </label>
-                  <div
-                    className={`font-bold text-lg p-2 rounded-md ${ratingColors[baselineData.rating] || "bg-gray-100 text-gray-800"}`}
-                  >
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Score</label>
+                  <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[baselineData.rating] || "bg-gray-100 text-gray-800"}`}>
                     {baselineData.score}
                   </div>
                 </div>
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Response
-                  </label>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Response</label>
                   <div className="font-semibold text-md p-2 rounded-md bg-gray-100 text-gray-800">
                     {baselineData.response}
                   </div>
@@ -822,31 +671,22 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   disabled={isGenerating}
                   className="flex items-center bg-calpoly-green hover:opacity-90 text-white text-sm font-bold py-2 px-3 rounded-lg transition duration-300 disabled:opacity-50"
                 >
-                  <span>
-                    {isGenerating
-                      ? "Generating..."
-                      : "✨ Suggest Mitigation Steps"}
-                  </span>
+                  <span>{isGenerating ? "Generating..." : "✨ Suggest Mitigation Steps"}</span>
                 </button>
               </div>
-
+              
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Additional Control Measures{" "}
-                  <span className="text-red-500">*</span>
+                  Additional Control Measures <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows="4"
                   required
                   value={formData.additionalControls}
-                  onChange={(e) =>
-                    handleChange("additionalControls", e.target.value)
-                  }
+                  onChange={(e) => handleChange("additionalControls", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  You can edit the AI generated strategies above.
-                </p>
+                <p className="text-xs text-gray-500 mt-1">You can edit the AI generated strategies above.</p>
               </div>
 
               <div>
@@ -856,20 +696,16 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 <select
                   required
                   value={formData.updatedLikelihood}
-                  onChange={(e) =>
-                    handleChange("updatedLikelihood", e.target.value)
-                  }
+                  onChange={(e) => handleChange("updatedLikelihood", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 >
                   <option value="">Select Likelihood</option>
                   {likelihoods.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.text}
-                    </option>
+                    <option key={l.value} value={l.value}>{l.text}</option>
                   ))}
                 </select>
               </div>
-
+              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Updated Impact <span className="text-red-500">*</span>
@@ -877,16 +713,12 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 <select
                   required
                   value={formData.updatedImpact}
-                  onChange={(e) =>
-                    handleChange("updatedImpact", e.target.value)
-                  }
+                  onChange={(e) => handleChange("updatedImpact", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 >
                   <option value="">Select Impact</option>
                   {impacts.map((i) => (
-                    <option key={i.value} value={i.value}>
-                      {i.text}
-                    </option>
+                    <option key={i.value} value={i.value}>{i.text}</option>
                   ))}
                 </select>
               </div>
@@ -894,43 +726,33 @@ const RiskModal: React.FC<RiskModalProps> = ({
               {/* Residual Score Display */}
               <div className="col-span-2 grid grid-cols-3 gap-4 bg-white p-3 rounded-lg border border-gray-200">
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Rating
-                  </label>
-                  <div
-                    className={`font-bold text-lg p-2 rounded-md ${ratingColors[residualData.rating] || "bg-gray-100 text-gray-800"}`}
-                  >
-                    {residualData.rating}
-                  </div>
+                   <label className="block text-sm font-medium text-gray-500 mb-1">Rating</label>
+                   <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[residualData.rating] || "bg-gray-100 text-gray-800"}`}>
+                     {residualData.rating}
+                   </div>
                 </div>
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Score
-                  </label>
-                  <div
-                    className={`font-bold text-lg p-2 rounded-md ${ratingColors[residualData.rating] || "bg-gray-100 text-gray-800"}`}
-                  >
-                    {residualData.score}
-                  </div>
+                   <label className="block text-sm font-medium text-gray-500 mb-1">Score</label>
+                   <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[residualData.rating] || "bg-gray-100 text-gray-800"}`}>
+                     {residualData.score}
+                   </div>
                 </div>
                 <div className="text-center">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Response
-                  </label>
-                  <div className="font-semibold text-md p-2 rounded-md bg-gray-100 text-gray-800">
-                    {residualData.response}
-                  </div>
+                   <label className="block text-sm font-medium text-gray-500 mb-1">Response</label>
+                   <div className="font-semibold text-md p-2 rounded-md bg-gray-100 text-gray-800">
+                     {residualData.response}
+                   </div>
                 </div>
               </div>
             </div>
 
             {/* --- Section 4: Tracking & Categorization --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h4 className="col-span-full text-lg font-semibold text-calpoly-gold mb-2">
                 4. Tracking & Categorization
               </h4>
-
-              <div>
+              
+              <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Risk Category <span className="text-red-500">*</span>
                 </label>
@@ -942,15 +764,12 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 >
                   <option value="">Select Category</option>
                   {riskCategories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
-
-              {/* Updated Status Dropdown */}
-              <div>
+              
+              <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Status <span className="text-red-500">*</span>
                 </label>
@@ -962,91 +781,86 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 >
                   <option value="">Select Status</option>
                   {statuses.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
+                     <option key={s} value={s}>{s}</option>
                   ))}
                   <option value="Tolerable">TOLERABLE (Risk Accepted)</option>
                 </select>
-
-                {/* Conditional Tolerance Level */}
+                
                 {formData.status === "Tolerable" && (
-                  <div className="mt-2">
-                    <select
-                      value={formData.statusTolerance}
-                      onChange={(e) =>
-                        handleChange("statusTolerance", e.target.value)
-                      }
-                      className="w-full bg-orange-50 border border-orange-200 text-sm rounded px-2 py-1"
-                    >
-                      <option value="">Select Tolerance Level...</option>
-                      <option value="Monitor">
-                        Broadly Acceptable (Monitor)
-                      </option>
-                      <option value="ALARP">Tolerable (ALARP)</option>
-                      <option value="Critical">
-                        Critical Acceptance (Exec Approval)
-                      </option>
-                    </select>
-                  </div>
+                   <div className="mt-2">
+                      <select 
+                         value={formData.statusTolerance}
+                         onChange={(e) => handleChange("statusTolerance", e.target.value)}
+                         className="w-full bg-orange-50 border border-orange-200 text-sm rounded px-2 py-1"
+                      >
+                         <option value="">Select Tolerance Level...</option>
+                         <option value="Monitor">Broadly Acceptable (Monitor)</option>
+                         <option value="ALARP">Tolerable (ALARP)</option>
+                         <option value="Critical">Critical Acceptance (Exec Approval)</option>
+                      </select>
+                   </div>
                 )}
+              </div>
+
+              {/* NEW: Departmental Risk Tolerance */}
+              <div className="col-span-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1 flex items-center">
+                  Department Risk Tolerance
+                  <span className="tooltip ml-2">
+                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                    <span className="tooltiptext w-64 p-2 text-xs">
+                      Indicates your department's operational willingness to accept this risk, aligning with the University's Strategic Risk Appetite.
+                    </span>
+                  </span>
+                </label>
+                <select
+                  value={formData.departmentRiskTolerance}
+                  onChange={(e) => handleChange("departmentRiskTolerance", e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+                >
+                  <option value="">Select Tolerance</option>
+                  <option value="Zero">Zero / Very Minimal (No appetite to accept this risk)</option>
+                  <option value="Low">Low (Willing to accept limited, tightly managed risk)</option>
+                  <option value="Moderate">Moderate (Willing to accept measured, well-governed risk)</option>
+                </select>
               </div>
 
               {/* Resource Requirements Buckets (Moved Here - Optional) */}
               <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-3 rounded border border-gray-200 mt-2">
-                <h5 className="col-span-full text-sm font-bold text-gray-700 border-b pb-1">
-                  Resource Requirements{" "}
-                  <span className="text-xs font-normal text-gray-500">
-                    (Optional)
-                  </span>
-                </h5>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">
-                    Internal FTEs
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="0.0"
-                    value={formData.resourceInternalFTE}
-                    onChange={(e) =>
-                      handleChange("resourceInternalFTE", e.target.value)
-                    }
-                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">
-                    External Resources
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Consultants"
-                    value={formData.resourceExternal}
-                    onChange={(e) =>
-                      handleChange("resourceExternal", e.target.value)
-                    }
-                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">
-                    Funding ($)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={formData.resourceFunding}
-                    onChange={(e) =>
-                      handleChange("resourceFunding", e.target.value)
-                    }
-                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                  />
-                </div>
+                 <h5 className="col-span-full text-sm font-bold text-gray-700 border-b pb-1">
+                    Resource Requirements <span className="text-xs font-normal text-gray-500">(Optional)</span>
+                 </h5>
+                 
+                 <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Internal FTEs</label>
+                    <input 
+                      type="number" step="0.1" placeholder="0.0"
+                      value={formData.resourceInternalFTE}
+                      onChange={(e) => handleChange("resourceInternalFTE", e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">External Resources</label>
+                    <input 
+                      type="text" placeholder="Consultants"
+                      value={formData.resourceExternal}
+                      onChange={(e) => handleChange("resourceExternal", e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Funding ($)</label>
+                    <input 
+                      type="number" placeholder="0"
+                      value={formData.resourceFunding}
+                      onChange={(e) => handleChange("resourceFunding", e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                 </div>
               </div>
-
-              <div className="md:col-span-2">
+              
+              <div className="col-span-full md:col-span-2">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Point of Contact for Status
                 </label>
@@ -1058,155 +872,85 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 />
               </div>
 
-              <div>
+              <div className="col-span-full md:col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   College/Unit Leadership Comments
                 </label>
                 <textarea
                   rows="3"
                   value={formData.leadershipComments}
-                  onChange={(e) =>
-                    handleChange("leadershipComments", e.target.value)
-                  }
+                  onChange={(e) => handleChange("leadershipComments", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
 
               {/* ERM & EHS Comments */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 col-span-full">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    ERM Comments
-                  </label>
-                  <textarea
-                    rows="3"
-                    value={formData.ermComments}
-                    onChange={(e) =>
-                      handleChange("ermComments", e.target.value)
-                    }
-                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-calpoly-green mb-1 flex items-center">
-                    <Sparkles className="w-3 h-3 mr-1" /> EHS Comments (Env.
-                    Health & Safety)
-                  </label>
-                  <textarea
-                    rows="3"
-                    value={formData.ehsComments}
-                    onChange={(e) =>
-                      handleChange("ehsComments", e.target.value)
-                    }
-                    className="w-full bg-green-50 border border-green-200 rounded-md shadow-sm px-3 py-2"
-                    placeholder="Safety protocols, PPE requirements..."
-                  />
-                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">ERM Comments</label>
+                    <textarea
+                      rows="3"
+                      value={formData.ermComments}
+                      onChange={(e) => handleChange("ermComments", e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-sm font-medium text-calpoly-green mb-1 flex items-center">
+                       <Sparkles className="w-3 h-3 mr-1" /> EHS Comments (Env. Health & Safety)
+                    </label>
+                    <textarea
+                      rows="3"
+                      value={formData.ehsComments}
+                      onChange={(e) => handleChange("ehsComments", e.target.value)}
+                      className="w-full bg-green-50 border border-green-200 rounded-md shadow-sm px-3 py-2"
+                      placeholder="Safety protocols, PPE requirements..."
+                    />
+                 </div>
               </div>
             </div>
 
-            {/* --- Privacy & Verification Flags (Updated) --- */}
+            {/* --- Privacy & Verification Flags --- */}
             <div className="mt-4 flex flex-col md:flex-row gap-4">
-              {/* Privacy Toggle */}
-              <label className="flex items-center cursor-pointer p-3 bg-gray-100 rounded border border-gray-200 hover:bg-gray-200 transition">
-                <input
-                  type="checkbox"
-                  checked={formData.isPrivate}
-                  onChange={(e) => handleChange("isPrivate", e.target.checked)}
-                  className="h-4 w-4 text-calpoly-green rounded"
-                />
-                <div className="ml-2 flex items-center">
-                  <Lock className="w-4 h-4 text-gray-500 mr-2" />
-                  <span className="text-sm font-semibold text-gray-700">
-                    Mark as Private / Confidential
-                  </span>
-                </div>
-              </label>
+               {/* Privacy Toggle */}
+               <label className="flex items-center cursor-pointer p-3 bg-gray-100 rounded border border-gray-200 hover:bg-gray-200 transition">
+                  <input 
+                     type="checkbox"
+                     checked={formData.isPrivate}
+                     onChange={(e) => handleChange("isPrivate", e.target.checked)}
+                     className="h-4 w-4 text-calpoly-green rounded"
+                  />
+                  <div className="ml-2 flex items-center">
+                     <Lock className="w-4 h-4 text-gray-500 mr-2" />
+                     <span className="text-sm font-semibold text-gray-700">Mark as Private / Confidential</span>
+                  </div>
+               </label>
 
-              {/* Attorney-Client Toggle */}
-              <label className="flex items-center cursor-pointer p-3 bg-red-50 rounded border border-red-200 hover:bg-red-100 transition">
-                <input
-                  type="checkbox"
-                  checked={formData.isAttorneyClientPrivilege}
-                  onChange={(e) =>
-                    handleChange("isAttorneyClientPrivilege", e.target.checked)
-                  }
-                  className="h-4 w-4 text-red-600 rounded"
-                />
-                <div className="ml-2 flex items-center">
-                  <ShieldAlert className="w-4 h-4 text-red-500 mr-2" />
-                  <span className="text-sm font-bold text-red-700">
-                    Attorney-Client Privilege
-                  </span>
-                </div>
-              </label>
+               {/* Attorney-Client Toggle */}
+               <label className="flex items-center cursor-pointer p-3 bg-red-50 rounded border border-red-200 hover:bg-red-100 transition">
+                  <input 
+                     type="checkbox"
+                     checked={formData.isAttorneyClientPrivilege}
+                     onChange={(e) => handleChange("isAttorneyClientPrivilege", e.target.checked)}
+                     className="h-4 w-4 text-red-600 rounded"
+                  />
+                  <div className="ml-2 flex items-center">
+                     <ShieldAlert className="w-4 h-4 text-red-500 mr-2" />
+                     <span className="text-sm font-bold text-red-700">Attorney-Client Privilege</span>
+                  </div>
+               </label>
             </div>
+
           </div>
 
-          {isAdminReview && showRejectInput && (
-            <div className="mt-4 p-4 rounded-lg border border-red-200 bg-red-50">
-              <label className="block text-sm font-semibold text-red-800 mb-2">
-                Rejection reason
-              </label>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                rows={3}
-                placeholder="Optional reason for rejection (visible to admins)"
-                className="w-full rounded border border-red-300 px-3 py-2 text-gray-800"
-              />
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onReject?.(rejectReason);
-                    setShowRejectInput(false);
-                    setRejectReason("");
-                  }}
-                  className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
-                >
-                  Confirm Reject
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowRejectInput(false);
-                    setRejectReason("");
-                  }}
-                  className="rounded bg-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end flex-wrap gap-3">
+          <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
               className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg transition duration-300"
             >
-              {isAdminReview && !showRejectInput ? "Close" : "Cancel"}
+              Cancel
             </button>
-            {isAdminReview && onApprove && onReject && !showRejectInput && (
-              <>
-                <button
-                  type="button"
-                  onClick={onApprove}
-                  className="bg-calpoly-green hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ring-1 ring-calpoly-gold"
-                >
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowRejectInput(true)}
-                  className="border-2 border-red-400 bg-red-50 text-red-700 font-bold py-2 px-4 rounded-lg transition duration-300 hover:bg-red-100"
-                >
-                  Reject
-                </button>
-              </>
-            )}
             <button
               type="submit"
               className="bg-calpoly-green hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ring-1 ring-calpoly-gold"
