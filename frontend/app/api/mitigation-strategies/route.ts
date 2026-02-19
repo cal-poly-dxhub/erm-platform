@@ -31,9 +31,6 @@ export async function POST(request: NextRequest) {
     let body: MitigationStrategyRequest;
     try {
       body = await request.json();
-      console.log("Received request body:", JSON.stringify(body, null, 2));
-      console.log("Body type:", typeof body);
-      console.log("Body keys:", Object.keys(body || {}));
     } catch (error) {
       console.error("Error parsing request body:", error);
       return NextResponse.json(
@@ -81,6 +78,7 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${session.accessToken}`,
       },
       body: JSON.stringify({
         risk_title: body.risk_title,
