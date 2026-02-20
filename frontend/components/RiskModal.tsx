@@ -280,10 +280,29 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ ...formData, id: risk?.id || `risk_${new Date().getTime()}` });
-    onClose();
+    const payload = {
+      ...formData,
+      id: risk?.id || `risk_${new Date().getTime()}`,
+    };
+    try {
+      const res = await fetch("/api/store-risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data?.error || `Failed to save risk: ${res.status}`);
+        return;
+      }
+      onSave({ ...formData, id: payload.id } as Risk);
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save risk");
+    }
   };
 
   const applySuggestion = (field, value) => {
