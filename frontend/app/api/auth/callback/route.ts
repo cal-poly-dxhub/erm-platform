@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
         (userInfo.preferred_username as string | undefined) ||
         (claims["cognito:username"] as string | undefined),
       groups: groups.length > 0 ? groups : fallbackGroups,
+      idToken: tokens.id_token,
       accessToken: tokens.access_token,
     };
 

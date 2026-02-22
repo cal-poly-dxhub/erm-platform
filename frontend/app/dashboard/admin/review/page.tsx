@@ -37,7 +37,14 @@ function getRejectionReason(r: ApiRisk): string {
 }
 
 function apiRiskToRisk(api: ApiRisk): Risk {
-  const id = api.id != null ? String(api.id) : (api.risk_id ?? "");
+  const numericFallbackFromRiskId =
+    typeof api.risk_id === "string" && /^\d+$/.test(api.risk_id.trim())
+      ? api.risk_id.trim()
+      : "";
+  const id =
+    api.id != null
+      ? String(api.id)
+      : numericFallbackFromRiskId;
   return {
     id,
     riskIdNo: api.risk_id ?? undefined,
@@ -74,6 +81,11 @@ function apiRiskToRisk(api: ApiRisk): Risk {
   };
 }
 
+function parseNumericId(value: string): number | null {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 export default function AdminReviewPage() {
   const [allRisks, setAllRisks] = useState<ApiRisk[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +93,11 @@ export default function AdminReviewPage() {
   const [modalRisk, setModalRisk] = useState<Risk | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [rejectDialogRisk, setRejectDialogRisk] = useState<Risk | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [deleteDialogRisk, setDeleteDialogRisk] = useState<Risk | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const pendingRisks = useMemo(
     () => allRisks.filter((r) => r.approval_status === "pending"),
@@ -99,6 +115,7 @@ export default function AdminReviewPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setActionMessage(null);
     try {
       const [pendingRes, rejectedRes, approvedRes] = await Promise.all([
         fetch("/api/admin/pending-risks", { credentials: "include" }),
@@ -156,57 +173,121 @@ export default function AdminReviewPage() {
   }, [fetchAll]);
 
   const handleApprove = async (risk: Risk) => {
-    const riskId = risk.id;
+    const numericId = parseNumericId(risk.id);
+    if (!numericId) {
+      setActionMessage("This record is missing a valid database ID and cannot be approved.");
+      return;
+    }
     try {
       const res = await fetch("/api/admin/approve-risk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ id: riskId }),
+        body: JSON.stringify({ id: numericId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data?.error || "Failed to approve");
+        const detail =
+          typeof data?.upstreamBody === "string" && data.upstreamBody.trim()
+            ? ` ${data.upstreamBody}`
+            : "";
+        setActionMessage((data?.error || "Failed to approve") + detail);
         return;
       }
       setModalOpen(false);
       setModalRisk(null);
       await fetchAll();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to approve");
+      setActionMessage(e instanceof Error ? e.message : "Failed to approve");
     }
   };
 
   const handleReject = async (risk: Risk, reason: string) => {
-    const riskId = risk.id;
+    const numericId = parseNumericId(risk.id);
+    if (!numericId) {
+      setActionMessage("This record is missing a valid database ID and cannot be rejected.");
+      return;
+    }
+    const riskId = String(numericId);
     setRejectingId(riskId);
     try {
       const res = await fetch("/api/admin/reject-risk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ id: riskId, rejection_reason: reason }),
+        body: JSON.stringify({ id: numericId, rejection_reason: reason }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data?.error || "Failed to reject");
+        const detail =
+          typeof data?.upstreamBody === "string" && data.upstreamBody.trim()
+            ? ` ${data.upstreamBody}`
+            : "";
+        setActionMessage((data?.error || "Failed to reject") + detail);
         return;
       }
       setRejectingId(null);
       setRejectReason("");
+      setRejectDialogRisk(null);
       setModalOpen(false);
       setModalRisk(null);
       await fetchAll();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to reject");
+      setActionMessage(e instanceof Error ? e.message : "Failed to reject");
     } finally {
       setRejectingId(null);
+    }
+  };
+
+  const handleDelete = async (risk: Risk) => {
+    const numericId = parseNumericId(risk.id);
+    if (!numericId) {
+      setActionMessage("This record is missing a valid database ID and cannot be deleted.");
+      return;
+    }
+    const riskId = String(numericId);
+    setDeletingId(riskId);
+    try {
+      const res = await fetch("/api/admin/delete-risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id: numericId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const detail =
+          typeof data?.upstreamBody === "string" && data.upstreamBody.trim()
+            ? ` ${data.upstreamBody}`
+            : "";
+        setActionMessage((data?.error || "Failed to delete") + detail);
+        return;
+      }
+      if (modalRisk?.id === riskId) {
+        setModalOpen(false);
+        setModalRisk(null);
+      }
+      setDeleteDialogRisk(null);
+      await fetchAll();
+    } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "Failed to delete");
+    } finally {
+      setDeletingId(null);
     }
   };
 
   const openEdit = (apiRisk: ApiRisk) => {
     setModalRisk(apiRiskToRisk(apiRisk));
     setModalOpen(true);
+  };
+
+  const openRejectDialog = (risk: Risk) => {
+    setRejectDialogRisk(risk);
+    setRejectReason("");
+  };
+
+  const openDeleteDialog = (risk: Risk) => {
+    setDeleteDialogRisk(risk);
   };
 
   return (
@@ -246,6 +327,11 @@ export default function AdminReviewPage() {
         {error && (
           <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
+          </section>
+        )}
+        {actionMessage && (
+          <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {actionMessage}
           </section>
         )}
 
@@ -363,17 +449,19 @@ export default function AdminReviewPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                const reason = window.prompt(
-                                  "Rejection reason (optional):",
-                                );
-                                if (reason !== null)
-                                  void handleReject(risk, reason);
-                              }}
+                              onClick={() => openRejectDialog(risk)}
                               disabled={rejectingId === risk.id}
                               className="rounded border border-red-300 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
                             >
                               Reject
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openDeleteDialog(risk)}
+                              disabled={deletingId === risk.id}
+                              className="rounded border border-red-400 bg-white px-2 py-1 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50"
+                            >
+                              Delete
                             </button>
                           </div>
                         </td>
@@ -471,17 +559,11 @@ export default function AdminReviewPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                const reason = window.prompt(
-                                  "Rejection reason (optional):",
-                                );
-                                if (reason !== null)
-                                  void handleReject(risk, reason);
-                              }}
-                              disabled={rejectingId === risk.id}
-                              className="rounded border border-red-300 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                              onClick={() => openDeleteDialog(risk)}
+                              disabled={deletingId === risk.id}
+                              className="rounded border border-red-400 bg-white px-2 py-1 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50"
                             >
-                              Reject
+                              Delete
                             </button>
                           </div>
                         </td>
@@ -529,7 +611,9 @@ export default function AdminReviewPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {approvedRisks.map((r, idx) => (
+                  {approvedRisks.map((r, idx) => {
+                    const risk = apiRiskToRisk(r);
+                    return (
                     <tr key={r.risk_id ?? r.id ?? idx} className="bg-white">
                       <td className="px-3 py-2 text-sm text-gray-800">
                         {r.risk_id ?? "--"}
@@ -547,16 +631,26 @@ export default function AdminReviewPage() {
                         {r.risk_description ?? "--"}
                       </td>
                       <td className="px-3 py-2">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(r)}
-                          className="rounded bg-calpoly-green/90 px-2 py-1 text-xs font-semibold text-white hover:opacity-90"
-                        >
-                          View / Edit
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(r)}
+                            className="rounded bg-calpoly-green/90 px-2 py-1 text-xs font-semibold text-white hover:opacity-90"
+                          >
+                            View / Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDeleteDialog(risk)}
+                            disabled={deletingId === risk.id}
+                            className="rounded border border-red-400 bg-white px-2 py-1 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -581,6 +675,91 @@ export default function AdminReviewPage() {
           modalRisk ? (reason) => handleReject(modalRisk, reason) : undefined
         }
       />
+
+      {rejectDialogRisk && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => {
+              if (rejectingId) return;
+              setRejectDialogRisk(null);
+            }}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
+              <h3 className="text-lg font-semibold text-calpoly-green">
+                Reject Risk
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Add an optional reason for rejecting this risk.
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)}
+                rows={4}
+                placeholder="Reason (optional)"
+                className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+              />
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectDialogRisk(null)}
+                  disabled={Boolean(rejectingId)}
+                  className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleReject(rejectDialogRisk, rejectReason)}
+                  disabled={Boolean(rejectingId)}
+                  className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {rejectingId ? "Rejecting..." : "Confirm Reject"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {deleteDialogRisk && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => {
+              if (deletingId) return;
+              setDeleteDialogRisk(null);
+            }}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
+              <h3 className="text-lg font-semibold text-red-700">Delete Risk</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Delete this risk permanently? This action cannot be undone.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteDialogRisk(null)}
+                  disabled={Boolean(deletingId)}
+                  className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(deleteDialogRisk)}
+                  disabled={Boolean(deletingId)}
+                  className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deletingId ? "Deleting..." : "Confirm Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

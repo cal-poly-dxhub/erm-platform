@@ -91,14 +91,15 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     rating: "-",
     response: "-",
   });
+  const [uiMessage, setUiMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (risk) {
       setFormData({
         riskIdNo: risk.riskIdNo || "",
         orgType: risk.orgType || "college",
-        college: risk.college || "",
-        unit: risk.unit || "",
+        college: risk.college || risk.collegeUnit || "",
+        unit: risk.unit || risk.collegeUnit || "",
         department: risk.department || "",
         isCollegeWide: risk.isCollegeWide || false,
         owner: risk.owner || "",
@@ -161,6 +162,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     setAiSuggestion(null);
     setLambdaSuggestion(null);
     setLambdaError(null);
+    setUiMessage(null);
   }, [risk, isOpen]);
 
   useEffect(() => {
@@ -282,9 +284,13 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const hasExistingId = Boolean(risk?.id);
     const payload = {
       ...formData,
       id: risk?.id || `risk_${new Date().getTime()}`,
+      action: hasExistingId ? "update" : "create",
+      approvalStatus: risk?.approvalStatus || "pending",
+      riskIdNo: formData.riskIdNo || risk?.riskIdNo || "",
     };
     try {
       const res = await fetch("/api/store-risk", {
@@ -295,13 +301,13 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data?.error || `Failed to save risk: ${res.status}`);
+        setUiMessage(data?.error || `Failed to save risk: ${res.status}`);
         return;
       }
       onSave({ ...formData, id: payload.id } as Risk);
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save risk");
+      setUiMessage(err instanceof Error ? err.message : "Failed to save risk");
     }
   };
 
@@ -311,15 +317,16 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
 
   const handleGenerateMitigation = async () => {
     if (!formData.risk || !formData.riskAnalysis || !formData.currentControls || !formData.riskCategory) {
-      alert("Please fill in Risk, Analysis, Controls, and Category first.");
+      setUiMessage("Please fill in Risk, Analysis, Controls, and Category first.");
       return;
     }
     if (!formData.likelihood || !formData.impact) {
-      alert("Please set baseline Likelihood and Impact first.");
+      setUiMessage("Please set baseline Likelihood and Impact first.");
       return;
     }
 
     setIsGenerating(true);
+    setUiMessage(null);
     try {
       const baselineScore = baselineData.score === "-" ? 0 : Number(baselineData.score);
       const response = await generateMitigationStrategies(
@@ -336,7 +343,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
       setMitigationStrategies(strategies);
 
       if (strategies.length === 0) {
-        alert("No strategies generated.");
+        setUiMessage("No strategies were generated.");
         return;
       }
 
@@ -360,7 +367,9 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
       }
     } catch (error) {
       console.error("Error generating strategies:", error);
-      alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setUiMessage(
+        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -415,6 +424,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
               <X className="w-6 h-6" />
             </button>
           </div>
+          {uiMessage && (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {uiMessage}
+            </div>
+          )}
 
           <div className="mt-4 max-h-[75vh] overflow-y-auto pr-4">
             

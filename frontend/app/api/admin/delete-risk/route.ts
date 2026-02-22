@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readSession } from "@/lib/auth/session";
 
-const RISK_APPROVAL_API_URL = process.env.RISK_APPROVAL_API_URL || "";
+const STORE_RISK_LAMBDA_API_URL = process.env.STORE_RISK_LAMBDA_API_URL || "";
 const ADMIN_GROUP = "admin";
 
 export async function POST(request: NextRequest) {
@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
       { status: 403 },
     );
   }
-  if (!RISK_APPROVAL_API_URL) {
+  if (!STORE_RISK_LAMBDA_API_URL) {
     return NextResponse.json(
-      { error: "Risk approval API URL not configured" },
+      { error: "Store risk API URL not configured" },
       { status: 500 },
     );
   }
@@ -26,10 +26,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const rawId = body.id ?? body.risk_id;
     if (rawId === undefined || rawId === null) {
-      return NextResponse.json(
-        { error: "Missing id in body" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing id in body" }, { status: 400 });
     }
     const id = typeof rawId === "number" ? rawId : parseInt(String(rawId), 10);
     if (Number.isNaN(id)) {
@@ -38,11 +35,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-
-    const actionedBy = session.email ?? session.username ?? session.sub ??  "";
-
-    console.log("RISK_APPROVAL_API_URL:", RISK_APPROVAL_API_URL);
-    console.log("body being sent:", JSON.stringify({ action: "approve", id, actioned_by: actionedBy }, null, 2));
 
     const authHeader =
       request.headers.get("Authorization") ??
@@ -55,16 +47,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const response = await fetch(RISK_APPROVAL_API_URL, {
+    const response = await fetch(STORE_RISK_LAMBDA_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: authHeader,
       },
       body: JSON.stringify({
-        action: "approve",
+        action: "delete",
         id,
-        actioned_by: actionedBy,
       }),
     });
 
@@ -72,7 +63,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       return NextResponse.json(
         {
-          error: `Approve API failed: ${response.status}`,
+          error: `Delete API failed: ${response.status}`,
           upstreamBody: responseBody || undefined,
         },
         { status: response.status },
@@ -88,10 +79,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result ?? { ok: true });
   } catch (error) {
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to approve risk",
-      },
+      { error: error instanceof Error ? error.message : "Failed to delete risk" },
       { status: 500 },
     );
   }

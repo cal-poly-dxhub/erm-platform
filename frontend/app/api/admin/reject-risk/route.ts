@@ -44,7 +44,11 @@ export async function POST(request: NextRequest) {
 
     const authHeader =
       request.headers.get("Authorization") ??
-      (session.accessToken ? `Bearer ${session.accessToken}` : null);
+      (session.accessToken
+        ? `Bearer ${session.accessToken}`
+        : session.idToken
+          ? `Bearer ${session.idToken}`
+          : null);
     if (!authHeader) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

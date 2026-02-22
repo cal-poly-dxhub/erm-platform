@@ -13,14 +13,34 @@ interface RiskCardProps {
 const RiskCard: React.FC<RiskCardProps> = ({ risk, onEdit, onDelete }) => {
   const baselineData = getRiskData(risk.likelihood, risk.impact);
   const residualData = getRiskData(risk.updatedLikelihood, risk.updatedImpact);
+  const approvalStatus = (risk.approvalStatus || "pending").toLowerCase();
+  const approvalBadgeClass =
+    approvalStatus === "approved"
+      ? "bg-emerald-100 text-emerald-800"
+      : approvalStatus === "rejected"
+        ? "bg-red-100 text-red-800"
+        : "bg-amber-100 text-amber-800";
+  const approvalLabel =
+    approvalStatus === "approved"
+      ? "Approved"
+      : approvalStatus === "rejected"
+        ? "Rejected"
+        : "Pending";
 
   return (
     <div className="bg-white rounded-lg shadow-sm mb-4 p-5 border border-gray-200 transition-all hover:border-calpoly-gold hover:shadow-md">
       <div className="flex flex-col md:flex-row justify-between items-start">
         <div className="flex-grow">
-          <p className="text-sm text-gray-500 font-medium">
-            {risk.riskIdNo || "No ID"}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-gray-500 font-medium">
+              {risk.riskIdNo || "No ID"}
+            </p>
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${approvalBadgeClass}`}
+            >
+              {approvalLabel}
+            </span>
+          </div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">
             {risk.risk || "Untitled Risk"}
           </h2>

@@ -21,6 +21,18 @@ function toBool(value: boolean | string | null | undefined): boolean {
   return String(value).toLowerCase() === "true" || String(value) === "1";
 }
 
+function toPositiveInt(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
 /**
  * Maps frontend risk payload to Lambda body matching RDS columns exactly.
  * unit = user's selection from college dropdown OR unit dropdown (they pick one).
@@ -33,8 +45,12 @@ function buildLambdaBody(body: Record<string, unknown>) {
       ? baselineLikelihood * baselineImpact
       : null;
   const unitValue = toStr(body.unit || body.college || "");
+  const recordId = toPositiveInt(body.id);
+  const actionValue = toStr(body.action ?? (recordId ? "update" : "create"));
 
   return {
+    ...(recordId ? { id: recordId } : {}),
+    action: actionValue,
     risk_id: toStr(body.riskIdNo ?? body.risk_id ?? ""),
     unit: unitValue,
     department: toStr(body.department ?? ""),
@@ -78,6 +94,7 @@ function buildLambdaBody(body: Record<string, unknown>) {
       body.leadershipComments ?? body.leadership_comments ?? ""
     ),
     status_tolerance: toStr(body.statusTolerance ?? body.status_tolerance ?? ""),
+    approval_status: toStr(body.approvalStatus ?? body.approval_status ?? ""),
   };
 }
 

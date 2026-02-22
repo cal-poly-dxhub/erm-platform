@@ -1,13 +1,12 @@
 import React from "react";
 import Link from "next/link";
-import { BarChart3, PlayCircle, PlusCircle } from "lucide-react";
+import { BarChart3, PlusCircle } from "lucide-react";
 
 interface HeaderProps {
-  onLoadDemo: () => void;
   onAddNew: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onLoadDemo, onAddNew }) => {
+const Header: React.FC<HeaderProps> = ({ onAddNew }) => {
   return (
     <header className="flex flex-col md:flex-row justify-between items-center mb-8 pb-4 border-b border-gray-300">
       <div className="text-center md:text-left mb-4 md:mb-0">
@@ -57,13 +56,6 @@ const Header: React.FC<HeaderProps> = ({ onLoadDemo, onAddNew }) => {
         >
           Sign Out
         </Link>
-        <button
-          onClick={onLoadDemo}
-          className="flex items-center bg-calpoly-gold hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
-        >
-          <PlayCircle className="w-5 h-5 mr-2" />
-          Load Demo
-        </button>
         <button
           onClick={onAddNew}
           className="flex items-center bg-calpoly-green hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ring-2 ring-calpoly-gold/50"

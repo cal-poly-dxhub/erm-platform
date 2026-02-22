@@ -63,6 +63,21 @@ const toNumber = (value: string | number | null) => {
 const normalizeKey = (value: string | null | undefined, fallback: string) =>
   value && value.trim() ? value.trim() : fallback;
 
+const normalizeStatusLabel = (value: string | null | undefined) => {
+  const raw = value ?? "";
+  const compact = raw
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+  if (!compact) {
+    return "Unspecified";
+  }
+
+  const lower = compact.toLowerCase();
+  return lower.replace(/\b\w/g, (ch) => ch.toUpperCase());
+};
+
 const groupCounts = (items: ApiRisk[], keyFn: (risk: ApiRisk) => string) => {
   const counts = new Map<string, number>();
   items.forEach((risk) => {
@@ -87,42 +102,64 @@ const buildBins = (values: number[]) => {
   }));
 };
 
-const COLUMN_PRIORITY = [
-  "id",
-  "risk_id",
-  "unit",
-  "department",
-  "owner",
-  "risk_description",
-  "risk_analysis",
-  "category",
-  "current_controls",
-  "baseline_likelihood",
-  "baseline_impact",
-  "baseline_risk_rating",
-  "mitigation_strategies",
-  "updated_likelihood",
-  "updated_impact",
-  "residual_risk_rating",
-  "status",
-  "approved",
-  "funding_required",
-  "risk_tolerance",
-  "risk_visibility",
-  "internal_resources",
-  "external_resources",
-  "resources_needed",
-  "additional_comments",
-  "risk_creation_at",
-];
+const BOARD_LANES = [
+  { key: "identified", label: "Identified" },
+  { key: "assessing", label: "Assessing" },
+  { key: "mitigating", label: "Mitigating" },
+  { key: "monitoring", label: "Monitoring" },
+  { key: "closed", label: "Closed/Resolved" },
+] as const;
 
-const formatColumnLabel = (key: string) =>
-  key
-    .split("_")
-    .map((part) =>
-      part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part,
-    )
-    .join(" ");
+type BoardLaneKey = (typeof BOARD_LANES)[number]["key"];
+
+const mapStatusToLane = (status: string | null): BoardLaneKey => {
+  const normalized = (status || "").trim().toLowerCase();
+  if (!normalized) return "identified";
+  if (normalized.includes("closed") || normalized.includes("resolved")) {
+    return "closed";
+  }
+  if (
+    normalized.includes("monitor") ||
+    normalized.includes("accept") ||
+    normalized.includes("watch")
+  ) {
+    return "monitoring";
+  }
+  if (
+    normalized.includes("mitig") ||
+    normalized.includes("control") ||
+    normalized.includes("treat")
+  ) {
+    return "mitigating";
+  }
+  if (
+    normalized.includes("assess") ||
+    normalized.includes("analysis") ||
+    normalized.includes("review")
+  ) {
+    return "assessing";
+  }
+  if (normalized.includes("ident") || normalized.includes("new")) {
+    return "identified";
+  }
+  return "assessing";
+};
+
+const getRiskKey = (risk: ApiRisk) => {
+  const numericId = risk.id;
+  return String(
+    risk.risk_id ||
+      numericId ||
+      `${risk.unit || "unit"}:${risk.owner || "owner"}:${risk.risk_description || "risk"}:${risk.residual_risk_rating ?? "na"}`,
+  );
+};
+
+const getResidualTone = (score: number | null) => {
+  if (score === null) return "bg-gray-100 text-gray-700";
+  if (score >= HIGH_RISK_THRESHOLD) return "bg-red-100 text-red-700";
+  if (score >= 11) return "bg-amber-100 text-amber-700";
+  return "bg-emerald-100 text-emerald-700";
+};
 
 const formatCellValue = (
   value: string | number | boolean | null | undefined,
@@ -144,6 +181,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [limit, setLimit] = useState(75);
   const [semanticQuery, setSemanticQuery] = useState("");
+  const [selectedRiskKey, setSelectedRiskKey] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     department: "",
     category: "",
@@ -282,7 +320,7 @@ export default function DashboardPage() {
     }).length;
 
     const statusCounts = groupCounts(approvedRisks, (risk) =>
-      normalizeKey(risk.status, "Unspecified"),
+      normalizeStatusLabel(risk.status),
     ).slice(0, 5);
     const categoryCounts = groupCounts(approvedRisks, (risk) =>
       normalizeKey(risk.category, "Uncategorized"),
@@ -345,25 +383,50 @@ export default function DashboardPage() {
     };
   }, [approvedRisks]);
 
-  const tableColumns = useMemo(() => {
-    if (approvedRisks.length === 0) {
-      return COLUMN_PRIORITY;
-    }
+  const boardLanes = useMemo(() => {
+    const initial = BOARD_LANES.reduce(
+      (acc, lane) => ({ ...acc, [lane.key]: [] as ApiRisk[] }),
+      {} as Record<BoardLaneKey, ApiRisk[]>,
+    );
 
-    const discovered = new Set<string>();
     approvedRisks.forEach((risk) => {
-      Object.keys(risk).forEach((key) => discovered.add(key));
+      initial[mapStatusToLane(risk.status)].push(risk);
     });
 
-    const priorityColumns = COLUMN_PRIORITY.filter((key) =>
-      discovered.has(key),
-    );
-    const additionalColumns = Array.from(discovered)
-      .filter((key) => !COLUMN_PRIORITY.includes(key))
-      .sort((a, b) => a.localeCompare(b));
+    BOARD_LANES.forEach((lane) => {
+      initial[lane.key].sort((a, b) => {
+        const aScore = toNumber(a.residual_risk_rating) ?? -1;
+        const bScore = toNumber(b.residual_risk_rating) ?? -1;
+        return bScore - aScore;
+      });
+    });
 
-    return [...priorityColumns, ...additionalColumns];
+    return initial;
   }, [approvedRisks]);
+
+  const selectedRisk = useMemo(() => {
+    if (!selectedRiskKey) return null;
+    return approvedRisks.find((risk) => getRiskKey(risk) === selectedRiskKey);
+  }, [approvedRisks, selectedRiskKey]);
+
+  useEffect(() => {
+    if (approvedRisks.length === 0) {
+      setSelectedRiskKey(null);
+      return;
+    }
+
+    if (!selectedRiskKey) {
+      setSelectedRiskKey(getRiskKey(approvedRisks[0]));
+      return;
+    }
+
+    const exists = approvedRisks.some(
+      (risk) => getRiskKey(risk) === selectedRiskKey,
+    );
+    if (!exists) {
+      setSelectedRiskKey(getRiskKey(approvedRisks[0]));
+    }
+  }, [approvedRisks, selectedRiskKey]);
 
   const handleApplyFilters = () => {
     fetchRisks(filters, limit, semanticQuery);
@@ -762,58 +825,189 @@ export default function DashboardPage() {
         </section>
 
         <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-calpoly-green">
-              Detailed Results
+              Risk Workflow Board
             </h3>
             {loading && (
               <span className="text-sm text-gray-500">Loading data...</span>
             )}
-            {!loading && error && (
-              <span className="text-sm text-red-500">{error}</span>
-            )}
           </div>
-          <div className="mt-4 overflow-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 text-left text-xs uppercase tracking-wide text-gray-500">
-                <tr>
-                  {tableColumns.map((column) => (
-                    <th key={column} className="px-3 py-2">
-                      {formatColumnLabel(column)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {approvedRisks.slice(0, 10).map((risk, index) => (
-                  <tr key={String(risk.risk_id || `row-${index}`)}>
-                    {tableColumns.map((column, columnIndex) => (
-                      <td
-                        key={`${column}-${index}`}
-                        className={`px-3 py-2 ${
-                          columnIndex === 0
-                            ? "font-medium text-gray-800"
-                            : "text-gray-600"
-                        }`}
-                      >
-                        {formatCellValue(risk[column])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                {!loading && approvedRisks.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={tableColumns.length || 1}
-                      className="px-3 py-6 text-center text-gray-500"
-                    >
-                      No results returned for the selected filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <p className="mt-2 text-sm text-gray-500">
+            Click any risk card to open full narrative details.
+          </p>
+          <div className="mt-4 overflow-x-auto pb-2">
+            <div className="grid min-w-[1120px] grid-cols-5 gap-4">
+              {BOARD_LANES.map((lane) => (
+                <div
+                  key={lane.key}
+                  className="rounded-xl border border-gray-200 bg-gray-50 p-3"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-gray-700">
+                      {lane.label}
+                    </h4>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-gray-600">
+                      {boardLanes[lane.key].length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {boardLanes[lane.key].slice(0, 8).map((risk) => {
+                      const riskKey = getRiskKey(risk);
+                      const residual = toNumber(risk.residual_risk_rating);
+                      return (
+                        <button
+                          key={riskKey}
+                          type="button"
+                          onClick={() => setSelectedRiskKey(riskKey)}
+                          className={`w-full rounded-lg border bg-white p-3 text-left shadow-sm transition hover:border-calpoly-gold hover:shadow ${
+                            selectedRiskKey === riskKey
+                              ? "border-calpoly-gold ring-2 ring-calpoly-gold/40"
+                              : "border-gray-200"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-semibold text-gray-800">
+                              {risk.risk_description || "Risk item"}
+                            </p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getResidualTone(
+                                residual,
+                              )}`}
+                            >
+                              {residual ?? "--"}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs text-gray-500">
+                            {normalizeKey(risk.owner, "Owner N/A")}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {normalizeKey(risk.unit, "Unit N/A")} |{" "}
+                            {normalizeKey(risk.category, "No category")}
+                          </p>
+                        </button>
+                      );
+                    })}
+                    {boardLanes[lane.key].length === 0 && (
+                      <p className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-4 text-center text-xs text-gray-400">
+                        No risks
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-calpoly-green">
+            Risk Detail
+          </h3>
+          {!selectedRisk && !loading && (
+            <p className="mt-3 text-sm text-gray-500">
+              No risk selected. Apply filters or select a risk from the board.
+            </p>
+          )}
+          {selectedRisk && (
+            <div className="mt-4 space-y-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Risk {selectedRisk.risk_id || "N/A"}
+                  </p>
+                  <h4 className="mt-1 text-xl font-semibold text-gray-900">
+                    {selectedRisk.risk_description || "Risk item"}
+                  </h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${getResidualTone(
+                      toNumber(selectedRisk.residual_risk_rating),
+                    )}`}
+                  >
+                    Residual {formatCellValue(selectedRisk.residual_risk_rating)}
+                  </span>
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                    {normalizeKey(selectedRisk.status, "Unspecified")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Owner
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">
+                    {formatCellValue(selectedRisk.owner)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Unit
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">
+                    {formatCellValue(selectedRisk.unit)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Department
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">
+                    {formatCellValue(selectedRisk.department)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Category
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">
+                    {formatCellValue(selectedRisk.category)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <h5 className="text-sm font-semibold text-gray-700">
+                    Risk Analysis
+                  </h5>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                    {formatCellValue(selectedRisk.risk_analysis)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <h5 className="text-sm font-semibold text-gray-700">
+                    Current Controls
+                  </h5>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                    {formatCellValue(selectedRisk.current_controls)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <h5 className="text-sm font-semibold text-gray-700">
+                    Mitigation Strategies
+                  </h5>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                    {formatCellValue(selectedRisk.mitigation_strategies)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <h5 className="text-sm font-semibold text-gray-700">
+                    Resources / Comments
+                  </h5>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                    {formatCellValue(selectedRisk.resources_needed)}
+                  </p>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                    {formatCellValue(selectedRisk.additional_comments)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>

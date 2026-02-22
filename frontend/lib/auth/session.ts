@@ -7,6 +7,7 @@ export type SessionUser = {
   name?: string;
   username?: string;
   groups: string[];
+  idToken?: string;
   accessToken?: string;
 };
 
