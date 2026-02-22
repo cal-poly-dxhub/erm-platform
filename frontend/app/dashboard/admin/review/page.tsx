@@ -36,6 +36,12 @@ function getRejectionReason(r: ApiRisk): string {
   return String(raw).trim() || "--";
 }
 
+const COLLEGE_VALUES = new Set(["cafes", "caed", "ocob", "ceng", "cla", "bcsm", "cpace"]);
+const UNIT_VALUES = new Set([
+  "academic_affairs", "admin_finance", "student_affairs", "diversity", "research",
+  "its", "facilities", "public_safety", "partners", "advancement", "marketing",
+]);
+
 function apiRiskToRisk(api: ApiRisk): Risk {
   const numericFallbackFromRiskId =
     typeof api.risk_id === "string" && /^\d+$/.test(api.risk_id.trim())
@@ -45,10 +51,18 @@ function apiRiskToRisk(api: ApiRisk): Risk {
     api.id != null
       ? String(api.id)
       : numericFallbackFromRiskId;
+  const rawUnit = (api.unit ?? "").toString().trim();
+  const normalized = rawUnit ? rawUnit.toLowerCase() : "";
+  const isUnit = normalized && UNIT_VALUES.has(normalized);
+  const orgType: "college" | "unit" = isUnit ? "unit" : "college";
+  const valueForSelect = normalized || undefined;
   return {
     id,
     riskIdNo: api.risk_id ?? undefined,
-    collegeUnit: api.unit ?? undefined,
+    orgType,
+    college: orgType === "college" ? valueForSelect : undefined,
+    unit: orgType === "unit" ? valueForSelect : undefined,
+    collegeUnit: valueForSelect ?? rawUnit ?? undefined,
     department: api.department ?? undefined,
     owner: api.owner ?? undefined,
     risk: api.risk_description ?? undefined,

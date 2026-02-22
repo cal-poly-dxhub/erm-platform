@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -106,15 +106,28 @@ function formatDate(value: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
+// Must match RiskModal college/unit option values so View shows the correct selection
+const COLLEGE_VALUES = new Set(["cafes", "caed", "ocob", "ceng", "cla", "bcsm", "cpace"]);
+const UNIT_VALUES = new Set([
+  "academic_affairs", "admin_finance", "student_affairs", "diversity", "research",
+  "its", "facilities", "public_safety", "partners", "advancement", "marketing",
+]);
+
 function mapApiRiskToRisk(api: ApiRisk): Risk {
   const id = api.id != null ? String(api.id) : String(api.risk_id ?? "");
+  const rawUnit = (api.unit ?? api.college_unit ?? "").toString().trim();
+  const normalized = rawUnit ? rawUnit.toLowerCase() : "";
+  const isCollege = normalized && COLLEGE_VALUES.has(normalized);
+  const isUnit = normalized && UNIT_VALUES.has(normalized);
+  const orgType: "college" | "unit" = isUnit ? "unit" : "college";
+  const valueForSelect = normalized || undefined;
   return {
     id,
     riskIdNo: api.risk_id ?? undefined,
-    orgType: "college",
-    college: api.unit ?? api.college_unit ?? undefined,
-    unit: api.unit ?? api.college_unit ?? undefined,
-    collegeUnit: api.unit ?? api.college_unit ?? undefined,
+    orgType,
+    college: orgType === "college" ? valueForSelect : undefined,
+    unit: orgType === "unit" ? valueForSelect : undefined,
+    collegeUnit: valueForSelect ?? (rawUnit || undefined),
     department: api.department ?? undefined,
     owner: api.owner ?? undefined,
     risk: api.risk_description ?? undefined,
@@ -314,6 +327,41 @@ export default function ProfilePage() {
     return rejectedRisksAdmin.filter((r) => isActionedByUser(r, user));
   }, [user, rejectedRisksAdmin]);
 
+  const refetchRisks = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const risksRes = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ limit: 500 }),
+      });
+      if (!risksRes.ok) return;
+      const riskData = await risksRes.json().catch(() => null);
+      const rawList = extractRisksFromResponse(riskData);
+      const list = rawList.filter((r) => isRiskOwnedByUser(r, user));
+      setRisks(list);
+
+      if (user.groups?.includes("admin")) {
+        const [approvedRes, rejectedRes] = await Promise.all([
+          fetch("/api/admin/approved-risks", { credentials: "include" }),
+          fetch("/api/admin/rejected-risks", { credentials: "include" }),
+        ]);
+        if (approvedRes.ok) {
+          const arr = await approvedRes.json();
+          setApprovedRisksAdmin(Array.isArray(arr) ? arr : []);
+        }
+        if (rejectedRes.ok) {
+          const arr = await rejectedRes.json();
+          setRejectedRisksAdmin(Array.isArray(arr) ? arr : []);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -356,7 +404,6 @@ export default function ProfilePage() {
         if (cancelled) return;
         const riskData = await risksRes.json().catch(() => null);
         const rawList = extractRisksFromResponse(riskData);
-        // If backend filtered by owner we get only our risks; otherwise filter client-side
         const list = u
           ? rawList.filter((r) => isRiskOwnedByUser(r, u))
           : rawList;
@@ -659,8 +706,11 @@ export default function ProfilePage() {
         isOpen={!!viewRisk}
         onClose={() => setViewRisk(null)}
         risk={viewRisk}
-        onSave={() => {}}
-        readOnly
+        onSave={() => {
+          refetchRisks();
+          setViewRisk(null);
+        }}
+        readOnly={!isAdmin}
       />
     </div>
   );

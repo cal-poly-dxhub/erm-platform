@@ -37,12 +37,26 @@ type ApiRisk = {
 
 const API_URL = "/api/erm-dashboard-results";
 
+const COLLEGE_VALUES = new Set(["cafes", "caed", "ocob", "ceng", "cla", "bcsm", "cpace"]);
+const UNIT_VALUES = new Set([
+  "academic_affairs", "admin_finance", "student_affairs", "diversity", "research",
+  "its", "facilities", "public_safety", "partners", "advancement", "marketing",
+]);
+
 const mapApiRiskToRisk = (api: ApiRisk): Risk => {
   const id = api.id != null ? String(api.id) : String(api.risk_id ?? "");
+  const rawUnit = (api.unit ?? api.college_unit ?? "").toString().trim();
+  const normalized = rawUnit ? rawUnit.toLowerCase() : "";
+  const isUnit = normalized && UNIT_VALUES.has(normalized);
+  const orgType: "college" | "unit" = isUnit ? "unit" : "college";
+  const valueForSelect = normalized || undefined;
   return {
     id,
     riskIdNo: api.risk_id ?? undefined,
-    collegeUnit: api.unit ?? api.college_unit ?? undefined,
+    orgType,
+    college: orgType === "college" ? valueForSelect : undefined,
+    unit: orgType === "unit" ? valueForSelect : undefined,
+    collegeUnit: valueForSelect ?? rawUnit ?? undefined,
     department: api.department ?? undefined,
     owner: api.owner ?? undefined,
     risk: api.risk_description ?? undefined,
