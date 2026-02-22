@@ -908,17 +908,15 @@ export default function DashboardPage() {
               <span className="text-sm text-gray-500">Loading data...</span>
             )}
           </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Click any risk card to open full narrative details.
-          </p>
-          <div className="mt-4 overflow-x-auto pb-2">
+          
+          <div className="mt-4 overflow-x-auto overflow-y-hidden pb-2">
             <div className="grid min-w-[1120px] grid-cols-5 gap-4">
               {BOARD_LANES.map((lane) => (
                 <div
                   key={lane.key}
-                  className="rounded-xl border border-gray-200 bg-gray-50 p-3"
+                  className="flex max-h-[70vh] min-h-[200px] flex-col rounded-xl border border-gray-200 bg-gray-50 p-3"
                 >
-                  <div className="mb-3 flex items-center justify-between">
+                  <div className="mb-3 flex shrink-0 items-center justify-between">
                     <h4 className="text-sm font-semibold text-gray-700">
                       {lane.label}
                     </h4>
@@ -926,8 +924,8 @@ export default function DashboardPage() {
                       {boardLanes[lane.key].length}
                     </span>
                   </div>
-                  <div className="space-y-3">
-                    {boardLanes[lane.key].slice(0, 8).map((risk) => {
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                    {boardLanes[lane.key].map((risk) => {
                       const riskKey = getRiskKey(risk);
                       const residual = toNumber(risk.residual_risk_rating);
                       return (
