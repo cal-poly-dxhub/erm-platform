@@ -17,11 +17,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => ({}));
+    const unit =
+      typeof body?.unit === "string" ? body.unit.trim() : "";
     const department =
       typeof body?.department === "string" ? body.department.trim() : "";
-    if (!department) {
+    const orgType = body?.orgType === "unit" ? "unit" : "college";
+
+    if (!unit) {
       return NextResponse.json(
-        { error: "Department is required" },
+        { error: "Please select a college or unit." },
         { status: 400 },
       );
     }
@@ -30,13 +34,16 @@ export async function POST(request: NextRequest) {
       request.headers.get("Authorization") ??
       (session.accessToken ? `Bearer ${session.accessToken}` : null);
 
+    const payload: Record<string, string> = { unit, orgType };
+    if (department) payload.department = department;
+
     const response = await fetch(GAP_ANALYSIS_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(authHeader ? { Authorization: authHeader } : {}),
       },
-      body: JSON.stringify({ department }),
+      body: JSON.stringify(payload),
     });
 
     const responseBody = await response.text();

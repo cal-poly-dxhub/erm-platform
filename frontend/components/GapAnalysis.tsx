@@ -1,20 +1,52 @@
 import React, { useState } from "react";
 
+const COLLEGE_OPTIONS = [
+  { value: "cafes", label: "College of Agriculture, Food & Env. Sciences (CAFES)" },
+  { value: "caed", label: "College of Architecture & Env. Design (CAED)" },
+  { value: "ocob", label: "Orfalea College of Business (OCOB)" },
+  { value: "ceng", label: "College of Engineering (CENG)" },
+  { value: "cla", label: "College of Liberal Arts (CLA)" },
+  { value: "bcsm", label: "Bailey College of Science & Mathematics (BCSM)" },
+  { value: "cpace", label: "Extended, Professional & Continuing Education" },
+];
+
+const UNIT_OPTIONS = [
+  { value: "academic_affairs", label: "Academic Affairs" },
+  { value: "admin_finance", label: "Administration & Finance" },
+  { value: "student_affairs", label: "Student Affairs" },
+  { value: "diversity", label: "Diversity & Inclusion (OUDI)" },
+  { value: "research", label: "Research & Graduate Programs" },
+  { value: "its", label: "Information Technology Services (ITS)" },
+  { value: "facilities", label: "Facilities Management & Development" },
+  { value: "public_safety", label: "Public Safety / University Police" },
+  { value: "partners", label: "Cal Poly Partners (Corporation)" },
+  { value: "advancement", label: "University Development & Alumni Engagement" },
+  { value: "marketing", label: "University Communications & Marketing" },
+];
+
 type GapRisk = {
   risk?: string;
   description?: string;
 };
 
 const GapAnalysis: React.FC = () => {
+  const [orgType, setOrgType] = useState<"college" | "unit">("college");
+  const [college, setCollege] = useState("");
+  const [unit, setUnit] = useState("");
   const [department, setDepartment] = useState("");
   const [risks, setRisks] = useState<GapRisk[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const selectedOrgValue = orgType === "college" ? college : unit;
+
   const runGapAnalysis = async () => {
-    const trimmed = department.trim();
-    if (!trimmed) {
-      setMessage("Please enter a department.");
+    if (!selectedOrgValue.trim()) {
+      setMessage(
+        orgType === "college"
+          ? "Please select a college."
+          : "Please select a unit."
+      );
       setRisks([]);
       return;
     }
@@ -26,7 +58,11 @@ const GapAnalysis: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ department: trimmed }),
+        body: JSON.stringify({
+          unit: selectedOrgValue.trim(),
+          orgType,
+          department: department.trim() || undefined,
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -58,29 +94,93 @@ const GapAnalysis: React.FC = () => {
     <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-bold text-gray-800">Gap Analysis</h2>
       <p className="mt-2 text-sm text-gray-500">
-        Enter a department to retrieve gap-analysis risks.
+        Select a college or unit, optionally enter a department, then run gap analysis.
       </p>
 
-      <div className="mt-4 flex flex-col gap-3 md:flex-row">
-        <input
-          value={department}
-          onChange={(event) => setDepartment(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              runGapAnalysis();
-            }
-          }}
-          placeholder="Department"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
-        />
-        <button
-          type="button"
-          onClick={runGapAnalysis}
-          disabled={loading}
-          className="rounded-md bg-calpoly-green px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-        >
-          {loading ? "Running..." : "Run"}
-        </button>
+      <div className="mt-4 space-y-4">
+        <div className="flex flex-wrap gap-4 items-center">
+          <span className="text-sm font-medium text-gray-700">Scope:</span>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="gapOrgType"
+              checked={orgType === "college"}
+              onChange={() => setOrgType("college")}
+              className="text-calpoly-green focus:ring-calpoly-gold"
+            />
+            <span className="text-gray-800">Academic College</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="gapOrgType"
+              checked={orgType === "unit"}
+              onChange={() => setOrgType("unit")}
+              className="text-calpoly-green focus:ring-calpoly-gold"
+            />
+            <span className="text-gray-800">Administrative Unit</span>
+          </label>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {orgType === "college" ? "College" : "Unit"}
+          </label>
+          {orgType === "college" ? (
+            <select
+              value={college}
+              onChange={(e) => setCollege(e.target.value)}
+              className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+            >
+              <option value="">-- Select College --</option>
+              {COLLEGE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+            >
+              <option value="">-- Select Unit --</option>
+              {UNIT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Department <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") runGapAnalysis();
+            }}
+            placeholder="e.g. Computer Science"
+            className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+          />
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={runGapAnalysis}
+            disabled={loading}
+            className="rounded-md bg-calpoly-green px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+          >
+            {loading ? "Running..." : "Run Gap Analysis"}
+          </button>
+        </div>
       </div>
 
       {message && (
