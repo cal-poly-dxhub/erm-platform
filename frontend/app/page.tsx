@@ -7,6 +7,7 @@ import RiskModal from "@/components/RiskModal";
 import HeatMap from "@/components/HeatMap";
 import Analytics from "@/components/Analytics";
 import GapAnalysis from "@/components/GapAnalysis";
+import type { GapRiskPrefill } from "@/components/GapAnalysis";
 import { Risk } from "@/types";
 
 type ApiRisk = {
@@ -223,6 +224,21 @@ export default function Home() {
     setIsModalOpen(true);
   };
 
+  const handleOpenAddRiskFromGap = (prefill: GapRiskPrefill) => {
+    const risk: Risk = {
+      id: "new",
+      orgType: prefill.orgType,
+      college: prefill.college,
+      unit: prefill.unit,
+      collegeUnit: prefill.collegeUnit,
+      department: prefill.department,
+      risk: prefill.risk,
+      riskAnalysis: prefill.riskAnalysis,
+    };
+    setEditingRisk(risk);
+    setIsModalOpen(true);
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingRisk(null);
@@ -257,7 +273,9 @@ export default function Home() {
         )}
 
         {currentView === "analytics" && <Analytics risks={risks} />}
-        {currentView === "gap" && <GapAnalysis />}
+        {currentView === "gap" && (
+          <GapAnalysis onOpenAddRisk={handleOpenAddRiskFromGap} />
+        )}
 
         <RiskModal
           isOpen={isModalOpen}

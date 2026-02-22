@@ -1,5 +1,16 @@
 import React, { useState } from "react";
 
+/** Prefill for opening the risk form from gap analysis (unit/college, department, optional risk text). */
+export type GapRiskPrefill = {
+  orgType: "college" | "unit";
+  college: string;
+  unit: string;
+  collegeUnit: string;
+  department: string;
+  risk?: string;
+  riskAnalysis?: string;
+};
+
 const COLLEGE_OPTIONS = [
   { value: "cafes", label: "College of Agriculture, Food & Env. Sciences (CAFES)" },
   { value: "caed", label: "College of Architecture & Env. Design (CAED)" },
@@ -29,7 +40,11 @@ type GapRisk = {
   description?: string;
 };
 
-const GapAnalysis: React.FC = () => {
+type GapAnalysisProps = {
+  onOpenAddRisk?: (prefill: GapRiskPrefill) => void;
+};
+
+const GapAnalysis: React.FC<GapAnalysisProps> = ({ onOpenAddRisk }) => {
   const [orgType, setOrgType] = useState<"college" | "unit">("college");
   const [college, setCollege] = useState("");
   const [unit, setUnit] = useState("");
@@ -39,6 +54,16 @@ const GapAnalysis: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
 
   const selectedOrgValue = orgType === "college" ? college : unit;
+
+  const getPrefill = (item?: GapRisk): GapRiskPrefill => ({
+    orgType,
+    college: orgType === "college" ? selectedOrgValue : "",
+    unit: orgType === "unit" ? selectedOrgValue : "",
+    collegeUnit: selectedOrgValue,
+    department,
+    risk: item?.risk,
+    riskAnalysis: item?.description,
+  });
 
   const runGapAnalysis = async () => {
     if (!selectedOrgValue.trim()) {
@@ -193,14 +218,25 @@ const GapAnalysis: React.FC = () => {
         {risks.map((item, index) => (
           <div
             key={`${item.risk || "risk"}-${index}`}
-            className="rounded-lg border border-gray-200 bg-gray-50 p-4"
+            className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between"
           >
-            <p className="text-sm font-semibold text-gray-800">
-              {item.risk || "Untitled Risk"}
-            </p>
-            <p className="mt-1 text-sm text-gray-600">
-              {item.description || "--"}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-800">
+                {item.risk || "Untitled Risk"}
+              </p>
+              <p className="mt-1 text-sm text-gray-600">
+                {item.description || "--"}
+              </p>
+            </div>
+            {onOpenAddRisk && (
+              <button
+                type="button"
+                onClick={() => onOpenAddRisk(getPrefill(item))}
+                className="shrink-0 self-start rounded-md border border-calpoly-green/60 bg-white px-3 py-1.5 text-xs font-semibold text-calpoly-green transition hover:bg-calpoly-green/5 sm:self-center"
+              >
+                Add as risk
+              </button>
+            )}
           </div>
         ))}
       </div>

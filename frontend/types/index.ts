@@ -2,6 +2,12 @@
 export interface Risk {
   id: string;
   riskIdNo?: string;
+  /** Form scope: "college" | "unit" (used by RiskModal for dropdowns). */
+  orgType?: "college" | "unit";
+  /** College value when orgType is "college". */
+  college?: string;
+  /** Unit value when orgType is "unit". */
+  unit?: string;
   collegeUnit?: string;
   department?: string;
   owner?: string;

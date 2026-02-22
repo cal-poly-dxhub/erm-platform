@@ -284,11 +284,16 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const hasExistingId = Boolean(risk?.id);
+    const idStr = risk?.id ?? "";
+    const isNewRisk =
+      idStr === "new" ||
+      idStr === "" ||
+      !/^\d+$/.test(String(idStr)) ||
+      Number(idStr) <= 0;
     const payload = {
       ...formData,
-      id: risk?.id || `risk_${new Date().getTime()}`,
-      action: hasExistingId ? "update" : "create",
+      id: isNewRisk ? undefined : risk?.id,
+      action: isNewRisk ? "create" : "update",
       approvalStatus: risk?.approvalStatus || "pending",
       riskIdNo: formData.riskIdNo || risk?.riskIdNo || "",
     };
