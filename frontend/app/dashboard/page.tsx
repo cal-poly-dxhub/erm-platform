@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 type ApiRisk = {
+  id?: string | number | null;
   risk_id: string | null;
   unit: string | null;
   department: string | null;
@@ -27,6 +28,22 @@ type ApiRisk = {
   updated_impact: string | number | null;
   residual_risk_rating: string | number | null;
   status: string | null;
+  internal_resources?: string | number | null;
+  external_resources?: string | null;
+  funding_required?: string | number | null;
+  risk_tolerance?: string | null;
+  risk_visibility?: string | null;
+  risk_creation_at?: string | null;
+  actioned_by?: string | null;
+  actioned_at?: string | null;
+  is_college_wide?: boolean | string | null;
+  status_poc?: string | null;
+  is_private?: boolean | string | null;
+  is_attorney_client_privilege?: boolean | string | null;
+  erm_comments?: string | null;
+  ehs_comments?: string | null;
+  leadership_comments?: string | null;
+  status_tolerance?: string | null;
   resources_needed: string | null;
   additional_comments: string | null;
   approval_status?: "pending" | "approved" | "rejected" | null;
@@ -172,6 +189,64 @@ const formatCellValue = (
   }
   return value;
 };
+
+const formatFieldLabel = (key: string) =>
+  key
+    .split("_")
+    .map((part) =>
+      part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part,
+    )
+    .join(" ");
+
+const DETAIL_FIELDS = [
+  "risk_id",
+  "unit",
+  "department",
+  "owner",
+  "risk_description",
+  "risk_analysis",
+  "category",
+  "current_controls",
+  "baseline_likelihood",
+  "baseline_impact",
+  "baseline_risk_rating",
+  "mitigation_strategies",
+  "updated_likelihood",
+  "updated_impact",
+  "residual_risk_rating",
+  "status",
+  "internal_resources",
+  "external_resources",
+  "funding_required",
+  "risk_tolerance",
+  "risk_visibility",
+  "risk_creation_at",
+  "approval_status",
+  "actioned_by",
+  "actioned_at",
+  "rejection_reason",
+  "is_college_wide",
+  "status_poc",
+  "is_private",
+  "is_attorney_client_privilege",
+  "erm_comments",
+  "ehs_comments",
+  "leadership_comments",
+  "status_tolerance",
+] as const;
+
+const LONG_TEXT_DETAIL_FIELDS = new Set<string>([
+  "risk_description",
+  "risk_analysis",
+  "current_controls",
+  "mitigation_strategies",
+  "erm_comments",
+  "ehs_comments",
+  "leadership_comments",
+  "rejection_reason",
+]);
+
+const DATE_DETAIL_FIELDS = new Set<string>(["risk_creation_at", "actioned_at"]);
 
 export default function DashboardPage() {
   const [risks, setRisks] = useState<ApiRisk[]>([]);
@@ -911,99 +986,43 @@ export default function DashboardPage() {
           )}
           {selectedRisk && (
             <div className="mt-4 space-y-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Risk {selectedRisk.risk_id || "N/A"}
-                  </p>
-                  <h4 className="mt-1 text-xl font-semibold text-gray-900">
-                    {selectedRisk.risk_description || "Risk item"}
-                  </h4>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${getResidualTone(
-                      toNumber(selectedRisk.residual_risk_rating),
-                    )}`}
-                  >
-                    Residual {formatCellValue(selectedRisk.residual_risk_rating)}
-                  </span>
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                    {normalizeKey(selectedRisk.status, "Unspecified")}
-                  </span>
-                </div>
-              </div>
+              <div className="rounded-xl border border-gray-200 p-4">
+                <h5 className="text-sm font-semibold text-gray-700">
+                  Full Risk Record
+                </h5>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {DETAIL_FIELDS.map((field) => {
+                    const rawValue = selectedRisk[field];
+                    let displayValue = formatCellValue(rawValue);
+                    if (
+                      DATE_DETAIL_FIELDS.has(field) &&
+                      typeof rawValue === "string" &&
+                      rawValue.trim()
+                    ) {
+                      const parsed = new Date(rawValue);
+                      if (!Number.isNaN(parsed.getTime())) {
+                        displayValue = parsed.toLocaleString();
+                      }
+                    }
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Owner
-                  </p>
-                  <p className="mt-1 text-sm text-gray-800">
-                    {formatCellValue(selectedRisk.owner)}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Unit
-                  </p>
-                  <p className="mt-1 text-sm text-gray-800">
-                    {formatCellValue(selectedRisk.unit)}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Department
-                  </p>
-                  <p className="mt-1 text-sm text-gray-800">
-                    {formatCellValue(selectedRisk.department)}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Category
-                  </p>
-                  <p className="mt-1 text-sm text-gray-800">
-                    {formatCellValue(selectedRisk.category)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <h5 className="text-sm font-semibold text-gray-700">
-                    Risk Analysis
-                  </h5>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                    {formatCellValue(selectedRisk.risk_analysis)}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <h5 className="text-sm font-semibold text-gray-700">
-                    Current Controls
-                  </h5>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                    {formatCellValue(selectedRisk.current_controls)}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <h5 className="text-sm font-semibold text-gray-700">
-                    Mitigation Strategies
-                  </h5>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                    {formatCellValue(selectedRisk.mitigation_strategies)}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <h5 className="text-sm font-semibold text-gray-700">
-                    Resources / Comments
-                  </h5>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                    {formatCellValue(selectedRisk.resources_needed)}
-                  </p>
-                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                    {formatCellValue(selectedRisk.additional_comments)}
-                  </p>
+                    return (
+                      <div
+                        key={field}
+                        className={`rounded-lg bg-gray-50 p-3 ${
+                          LONG_TEXT_DETAIL_FIELDS.has(field)
+                            ? "sm:col-span-2 lg:col-span-4"
+                            : ""
+                        }`}
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {formatFieldLabel(field)}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">
+                          {displayValue}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

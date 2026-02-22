@@ -6,6 +6,7 @@ import RiskList from "@/components/RiskList";
 import RiskModal from "@/components/RiskModal";
 import HeatMap from "@/components/HeatMap";
 import Analytics from "@/components/Analytics";
+import GapAnalysis from "@/components/GapAnalysis";
 import { Risk } from "@/types";
 
 type ApiRisk = {
@@ -77,23 +78,29 @@ const mapApiRiskToRisk = (api: ApiRisk): Risk => {
 
 export default function Home() {
   const [risks, setRisks] = useState<Risk[]>([]);
-  const [currentView, setCurrentView] = useState<"list" | "map" | "analytics">("list");
+  const [currentView, setCurrentView] = useState<
+    "list" | "map" | "analytics" | "gap"
+  >("list");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [deleteRiskId, setDeleteRiskId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const updateViewButtons = (activeView: "list" | "map" | "analytics") => {
-    const views: Array<"list" | "map" | "analytics"> = [
+  const updateViewButtons = (
+    activeView: "list" | "map" | "analytics" | "gap",
+  ) => {
+    const views: Array<"list" | "map" | "analytics" | "gap"> = [
       "list",
       "map",
       "analytics",
+      "gap",
     ];
-    const buttonIds: Record<"list" | "map" | "analytics", string> = {
+    const buttonIds: Record<"list" | "map" | "analytics" | "gap", string> = {
       list: "btn-list-view",
       map: "btn-map-view",
       analytics: "btn-analytics-view",
+      gap: "btn-gap-view",
     };
 
     views.forEach((view) => {
@@ -150,7 +157,7 @@ export default function Home() {
     fetchRisks();
 
     const handleViewChange = (event: Event) => {
-      const e = event as CustomEvent<"list" | "map" | "analytics">;
+      const e = event as CustomEvent<"list" | "map" | "analytics" | "gap">;
       setCurrentView(e.detail);
       setTimeout(() => updateViewButtons(e.detail), 0);
     };
@@ -250,6 +257,7 @@ export default function Home() {
         )}
 
         {currentView === "analytics" && <Analytics risks={risks} />}
+        {currentView === "gap" && <GapAnalysis />}
 
         <RiskModal
           isOpen={isModalOpen}

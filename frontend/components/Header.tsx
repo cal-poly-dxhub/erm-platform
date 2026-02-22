@@ -40,7 +40,17 @@ const Header: React.FC<HeaderProps> = ({ onAddNew }) => {
           >
             Heat Map
           </button>
-          {/* Analytics button removed  */}
+          <button
+            id="btn-gap-view"
+            className="px-3 py-1 text-sm font-semibold rounded-md text-gray-600"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("viewChange", { detail: "gap" })
+              )
+            }
+          >
+            Gap Analysis
+          </button>
         </div>
         
         <Link
