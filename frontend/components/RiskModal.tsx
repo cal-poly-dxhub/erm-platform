@@ -19,9 +19,11 @@ interface RiskModalProps {
   onClose: () => void;
   risk: Risk | null;
   onSave: (riskData: Risk) => void;
+  /** When true, form is read-only and only a Close button is shown. */
+  readOnly?: boolean;
 }
 
-const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) => {
+const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, readOnly = false }) => {
   const [formData, setFormData] = useState({
     riskIdNo: "",
     
@@ -165,6 +167,33 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
     setUiMessage(null);
   }, [risk, isOpen]);
 
+  // Pre-fill owner with current user's Cognito email when opening for a new risk
+  useEffect(() => {
+    if (!isOpen) return;
+    const isNewRisk =
+      !risk ||
+      !risk.id ||
+      risk.id === "new" ||
+      String(risk.id).trim() === "";
+    if (!isNewRisk) return;
+
+    let cancelled = false;
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const email =
+          data?.user?.email ?? data?.user?.name ?? data?.user?.username ?? "";
+        if (email) {
+          setFormData((prev) => ({ ...prev, owner: email }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, risk?.id]);
+
   useEffect(() => {
     if (isOpen) {
       updateCalculations();
@@ -284,6 +313,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     const idStr = risk?.id ?? "";
     const isNewRisk =
       idStr === "new" ||
@@ -417,9 +447,11 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="flex justify-between items-center pb-3 border-b border-gray-200">
             <h3 className="text-2xl font-semibold text-calpoly-green">
-              {risk
-                ? `Edit Risk: ${risk.riskIdNo || "Untitled"}`
-                : "Add New Risk"}
+              {readOnly
+                ? "View Risk"
+                : risk
+                  ? `Edit Risk: ${risk.riskIdNo || "Untitled"}`
+                  : "Add New Risk"}
             </h3>
             <button
               type="button"
@@ -435,7 +467,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
             </div>
           )}
 
-          <div className="mt-4 max-h-[75vh] overflow-y-auto pr-4">
+          <fieldset className="mt-4 max-h-[75vh] overflow-y-auto pr-4" disabled={readOnly}>
             
             {/* --- Section 1: Risk Identification & Context --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -979,22 +1011,34 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave }) 
                </label>
             </div>
 
-          </div>
+          </fieldset>
 
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg transition duration-300"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="bg-calpoly-green hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ring-1 ring-calpoly-gold"
-            >
-              Save Risk
-            </button>
+            {readOnly ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="bg-calpoly-green hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+              >
+                Close
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg transition duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-calpoly-green hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ring-1 ring-calpoly-gold"
+                >
+                  Save Risk
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>

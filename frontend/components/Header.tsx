@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { BarChart3, PlusCircle } from "lucide-react";
+import { BarChart3, PlusCircle, User } from "lucide-react";
 
 interface HeaderProps {
   onAddNew: () => void;
@@ -59,6 +59,13 @@ const Header: React.FC<HeaderProps> = ({ onAddNew }) => {
         >
           <BarChart3 className="w-5 h-5 mr-2" />
           Dashboard
+        </Link>
+        <Link
+          href="/profile"
+          className="flex items-center bg-white hover:bg-gray-50 text-calpoly-green font-bold py-2 px-4 rounded-lg transition duration-300 border border-calpoly-green/30"
+        >
+          <User className="w-5 h-5 mr-2" />
+          My Profile
         </Link>
         <Link
           href="/api/auth/logout"

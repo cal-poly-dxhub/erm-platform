@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   RefreshCcw,
   ShieldCheck,
+  User,
 } from "lucide-react";
 
 type ApiRisk = {
@@ -552,6 +553,13 @@ export default function DashboardPage() {
                 Admin Review
               </Link>
             )}
+            <Link
+              href="/profile"
+              className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
+            >
+              <User className="mr-2 h-4 w-4" />
+              My Profile
+            </Link>
             <Link
               href="/api/auth/logout"
               className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"

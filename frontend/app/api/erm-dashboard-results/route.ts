@@ -19,12 +19,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = await request.text();
+  let body = await request.text();
   if (!session.accessToken) {
     return NextResponse.json(
       { error: "Unauthorized. Missing access token in session." },
       { status: 401 }
     );
+  }
+
+  // When client asks to limit by session email, inject session identity server-side
+  try {
+    const parsed = body ? JSON.parse(body) : {};
+    if (parsed.limit_by_session_email) {
+      const sessionEmail =
+        session.email ?? session.name ?? session.username ?? "";
+      const filters = typeof parsed.filters === "object" && parsed.filters != null ? { ...parsed.filters } : {};
+      if (sessionEmail) {
+        filters.owner = sessionEmail;
+      }
+      const { limit_by_session_email: _, ...rest } = parsed;
+      body = JSON.stringify({ ...rest, filters });
+    }
+  } catch {
+    // leave body unchanged if parse fails
   }
 
   const response = await fetch(API_URL, {
