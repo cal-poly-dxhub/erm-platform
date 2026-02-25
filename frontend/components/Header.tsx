@@ -1,12 +1,14 @@
 import React from "react";
 import Link from "next/link";
-import { BarChart3, PlusCircle, User } from "lucide-react";
+import { BarChart3, PlusCircle, RefreshCw, User } from "lucide-react";
 
 interface HeaderProps {
   onAddNew: () => void;
+  onRefresh: () => void;
+  isRefreshing?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onAddNew }) => {
+const Header: React.FC<HeaderProps> = ({ onAddNew, onRefresh, isRefreshing = false }) => {
   return (
     <header className="flex flex-col md:flex-row justify-between items-center mb-8 pb-4 border-b border-gray-300">
       <div className="text-center md:text-left mb-4 md:mb-0">
@@ -62,6 +64,15 @@ const Header: React.FC<HeaderProps> = ({ onAddNew }) => {
         >
           Sign Out
         </Link>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="flex items-center bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-calpoly-green font-bold py-2 px-4 rounded-lg transition duration-300 border border-calpoly-green/30"
+        >
+          <RefreshCw className={`w-5 h-5 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
         <button
           onClick={onAddNew}
           className="flex items-center bg-calpoly-green hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ring-2 ring-calpoly-gold/50"

@@ -33,6 +33,11 @@ type ApiRisk = {
   erm_comments?: string | null;
   approval_status?: "pending" | "approved" | "rejected" | null;
   rejection_reason?: string | null;
+  risk_creation_at?: string | null;
+  created_at?: string | null;
+  createdAt?: string | null;
+  updated_at?: string | null;
+  actioned_at?: string | null;
 };
 
 const API_URL = "/api/erm-dashboard-results";
@@ -42,6 +47,39 @@ const UNIT_VALUES = new Set([
   "academic_affairs", "admin_finance", "student_affairs", "diversity", "research",
   "its", "facilities", "public_safety", "partners", "advancement", "marketing",
 ]);
+
+const toEpoch = (value: unknown): number => {
+  if (typeof value !== "string" || !value.trim()) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+};
+
+const toNumericId = (value: unknown): number => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : Number.NEGATIVE_INFINITY;
+};
+
+const newestFirst = (a: ApiRisk, b: ApiRisk): number => {
+  const dateA = Math.max(
+    toEpoch(a.risk_creation_at),
+    toEpoch(a.created_at),
+    toEpoch(a.createdAt),
+    toEpoch(a.updated_at),
+    toEpoch(a.actioned_at)
+  );
+  const dateB = Math.max(
+    toEpoch(b.risk_creation_at),
+    toEpoch(b.created_at),
+    toEpoch(b.createdAt),
+    toEpoch(b.updated_at),
+    toEpoch(b.actioned_at)
+  );
+  if (dateA !== dateB) return dateB - dateA;
+
+  const idA = toNumericId(a.id ?? a.risk_id);
+  const idB = toNumericId(b.id ?? b.risk_id);
+  return idB - idA;
+};
 
 const mapApiRiskToRisk = (api: ApiRisk): Risk => {
   const id = api.id != null ? String(api.id) : String(api.risk_id ?? "");
@@ -159,7 +197,8 @@ export default function Home() {
         : Array.isArray(normalized)
           ? normalized
           : [];
-      setRisks(results.map((risk: ApiRisk) => mapApiRiskToRisk(risk)));
+      const sortedResults = [...results].sort((a: ApiRisk, b: ApiRisk) => newestFirst(a, b));
+      setRisks(sortedResults.map((risk: ApiRisk) => mapApiRiskToRisk(risk)));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to load risks");
       setRisks([]);
@@ -261,7 +300,7 @@ export default function Home() {
   return (
     <div className="bg-gray-100 text-gray-800">
       <div className="container mx-auto p-4 md:p-8">
-        <Header onAddNew={handleAddNew} />
+        <Header onAddNew={handleAddNew} onRefresh={() => void fetchRisks()} isRefreshing={loading} />
 
         {message && (
           <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
