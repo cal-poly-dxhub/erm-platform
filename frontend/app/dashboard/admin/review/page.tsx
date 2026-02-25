@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, Clock, CheckCircle, XCircle } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
+import HeatMap from "@/components/HeatMap";
 import { Risk } from "@/types";
 
 type ApiRisk = {
@@ -125,6 +126,21 @@ export default function AdminReviewPage() {
     () => allRisks.filter((r) => r.approval_status === "approved"),
     [allRisks],
   );
+
+  // Map risks for the Heat Map
+  const activeRisksForHeatMap = useMemo(() => {
+    // Only show Pending and Approved risks in the heat map (ignore rejected)
+    return allRisks
+      .filter((r) => r.approval_status !== "rejected")
+      .map(apiRiskToRisk);
+  }, [allRisks]);
+
+  const handleHeatMapEdit = (id: string) => {
+    const foundApiRisk = allRisks.find((r) => String(r.id) === id || r.risk_id === id);
+    if (foundApiRisk) {
+      openEdit(foundApiRisk);
+    }
+  };
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -487,6 +503,13 @@ export default function AdminReviewPage() {
             </div>
           )}
         </section>
+
+        {/* --- HEAT MAP SECTION (MOVED HERE) --- */}
+        {!loading && activeRisksForHeatMap.length > 0 && (
+          <div className="mt-8">
+            <HeatMap risks={activeRisksForHeatMap} onEdit={handleHeatMapEdit} />
+          </div>
+        )}
 
         {/* 2. Rejected — with rejection reason */}
         <section className="mt-8 rounded-2xl border border-red-200 bg-red-50/30 p-6 shadow-sm">
