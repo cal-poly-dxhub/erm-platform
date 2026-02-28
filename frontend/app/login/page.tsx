@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE_NAME, getSessionFromCookieValue } from "@/lib/auth/session";
 
 type LoginPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -15,6 +18,12 @@ const normalizeReturnTo = (value: string | string[] | undefined) => {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = (await searchParams) ?? {};
   const returnTo = normalizeReturnTo(params.returnTo);
+
+  const cookieStore = await cookies();
+  const session = getSessionFromCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  if (session) {
+    redirect(returnTo);
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200 px-4 py-10">

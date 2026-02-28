@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, Clock, CheckCircle, XCircle } from "lucide-react";
+import { ShieldCheck, Clock, CheckCircle, XCircle, Users } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
 import HeatMap from "@/components/HeatMap";
 import { Risk } from "@/types";
@@ -337,6 +337,13 @@ export default function AdminReviewPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/dashboard/admin/users"
+              className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              User Management
+            </Link>
             <Link
               href="/dashboard"
               className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"

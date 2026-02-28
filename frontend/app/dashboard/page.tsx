@@ -9,6 +9,7 @@ import {
   RefreshCcw,
   ShieldCheck,
   User,
+  Users,
 } from "lucide-react";
 
 type ApiRisk = {
@@ -545,13 +546,22 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {user?.groups?.includes("admin") && (
-              <Link
-                href="/dashboard/admin/review"
-                className="inline-flex items-center rounded-lg border border-calpoly-gold bg-calpoly-gold/10 px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-calpoly-gold/20"
-              >
-                <ClipboardCheck className="mr-2 h-4 w-4" />
-                Admin Review
-              </Link>
+              <>
+                <Link
+                  href="/dashboard/admin/review"
+                  className="inline-flex items-center rounded-lg border border-calpoly-gold bg-calpoly-gold/10 px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-calpoly-gold/20"
+                >
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Admin Review
+                </Link>
+                <Link
+                  href="/dashboard/admin/users"
+                  className="inline-flex items-center rounded-lg border border-calpoly-gold bg-calpoly-gold/10 px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-calpoly-gold/20"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  User Management
+                </Link>
+              </>
             )}
             <Link
               href="/profile"

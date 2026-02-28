@@ -19,7 +19,7 @@ export type AuthFlowState = {
   returnTo: string;
 };
 
-const SESSION_COOKIE_NAME = "erm_session";
+export const SESSION_COOKIE_NAME = "erm_session";
 const FLOW_COOKIE_NAME = "erm_auth_flow";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const FLOW_TTL_SECONDS = 60 * 10;
@@ -35,10 +35,17 @@ export const sanitizeReturnTo = (value: string | null | undefined) => {
 
 export function readSession(request: NextRequest) {
   const raw = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  if (!raw) {
+  return getSessionFromCookieValue(raw);
+}
+
+/** For server components: pass cookies().get(SESSION_COOKIE_NAME)?.value */
+export function getSessionFromCookieValue(value: string | undefined): SessionUser | null {
+  if (!value) return null;
+  try {
+    return verifySignedToken<SessionUser>(value);
+  } catch {
     return null;
   }
-  return verifySignedToken<SessionUser>(raw);
 }
 
 export function setSession(response: NextResponse, user: SessionUser) {
