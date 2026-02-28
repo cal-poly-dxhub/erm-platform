@@ -231,6 +231,15 @@ export default function Home() {
       window.removeEventListener("openGapAnalysis", handler as EventListener);
   }, []);
 
+  // Switch to Risk Register when sidebar link is clicked (same-page)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => setCurrentView("register");
+    window.addEventListener("openRiskRegister", handler as EventListener);
+    return () =>
+      window.removeEventListener("openRiskRegister", handler as EventListener);
+  }, []);
+
   const handleSaveRisk = (_riskData: Risk) => {
     setEditingRisk(null);
     void fetchRisks();
@@ -368,7 +377,10 @@ export default function Home() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-calpoly-green">
+          <p className="text-xs font-semibold uppercase tracking-widest text-calpoly-gold">
+            Enterprise Risk Management
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-calpoly-green">
             {currentView === "gap" ? "Gap Analysis" : "Risk Register"}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -414,123 +426,141 @@ export default function Home() {
       </div>
 
       {message && (
-        <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {message}
         </div>
       )}
-      {loading && (
-        <div className="rounded-lg bg-white px-4 py-3 text-sm text-gray-600">
-          Loading risks...
+      {loading && currentView === "register" && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          Loading risks…
         </div>
       )}
 
       {currentView === "register" && (
         <>
-          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex-1">
+          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-calpoly-green">Filters</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Search and filter risks by status or unit.
+            </p>
+            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="flex-1 min-w-0">
+                <label htmlFor="risk-search" className="block text-sm font-medium text-gray-700">
+                  Search
+                </label>
                 <input
+                  id="risk-search"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by ID, description, owner, department..."
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+                  placeholder="Search by ID, description, owner, department…"
+                  className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
                 />
               </div>
-              <div className="flex flex-wrap gap-2 md:ml-4">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-                >
-                  <option value="">All Statuses</option>
-                  {uniqueStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={unitFilter}
-                  onChange={(e) => setUnitFilter(e.target.value)}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-                >
-                  <option value="">All Units</option>
-                  {uniqueUnits.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-wrap gap-3">
+                <div>
+                  <label htmlFor="risk-status" className="block text-sm font-medium text-gray-700">
+                    Status
+                  </label>
+                  <select
+                    id="risk-status"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="mt-1 min-w-[10rem] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+                  >
+                    <option value="">All statuses</option>
+                    {uniqueStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="risk-unit" className="block text-sm font-medium text-gray-700">
+                    Unit
+                  </label>
+                  <select
+                    id="risk-unit"
+                    value={unitFilter}
+                    onChange={(e) => setUnitFilter(e.target.value)}
+                    className="mt-1 min-w-[10rem] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+                  >
+                    <option value="">All units</option>
+                    {uniqueUnits.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </section>
 
           {registerMode === "cards" ? (
-            <RiskList
-              risks={filteredRisks}
-              onEdit={handleEditRisk}
-              onDelete={handleDeleteRisk}
-            />
+            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-calpoly-green mb-4">Risks</h2>
+              <RiskList
+                risks={filteredRisks}
+                onEdit={handleEditRisk}
+                onDelete={handleDeleteRisk}
+              />
+            </section>
           ) : (
-            <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm text-gray-700">
-                  <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase text-gray-500">
-                    <tr>
-                      <th className="px-3 py-2">ID</th>
-                      <th className="px-3 py-2">Unit</th>
-                      <th className="px-3 py-2">Owner</th>
-                      <th className="px-3 py-2">Risk</th>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Approval</th>
-                      <th className="px-3 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredRisks.map((risk) => (
-                      <tr key={risk.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-xs text-gray-500">
-                          {risk.riskIdNo || "—"}
-                        </td>
-                        <td className="px-3 py-2">
-                          {risk.collegeUnit || "—"}
-                        </td>
-                        <td className="px-3 py-2">{risk.owner || "—"}</td>
-                        <td className="px-3 py-2 max-w-xs truncate">
-                          {risk.risk || "Untitled Risk"}
-                        </td>
-                        <td className="px-3 py-2">{risk.status || "Not Set"}</td>
-                        <td className="px-3 py-2">
-                          {(risk.approvalStatus || "pending")
-                            .charAt(0)
-                            .toUpperCase() +
-                            (risk.approvalStatus || "pending").slice(1)}
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs">
-                          <button
-                            type="button"
-                            onClick={() => handleEditRisk(risk.id)}
-                            className="rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-calpoly-green hover:bg-gray-50"
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredRisks.length === 0 && !loading && (
+            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-calpoly-green mb-4">Risks</h2>
+              {filteredRisks.length === 0 && !loading ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-600">
+                  No risks match your filters.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="min-w-full text-left text-sm text-gray-700">
+                    <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
                       <tr>
-                        <td
-                          colSpan={7}
-                          className="px-3 py-4 text-center text-sm text-gray-500"
-                        >
-                          No risks match your filters.
-                        </td>
+                        <th className="px-4 py-3">ID</th>
+                        <th className="px-4 py-3">Unit</th>
+                        <th className="px-4 py-3">Owner</th>
+                        <th className="px-4 py-3">Risk</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Approval</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {filteredRisks.map((risk) => (
+                        <tr key={risk.id} className="transition hover:bg-gray-50">
+                          <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
+                            {risk.riskIdNo || "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                            {risk.collegeUnit || "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{risk.owner || "—"}</td>
+                          <td className="max-w-xs truncate px-4 py-3 text-gray-600" title={risk.risk || ""}>
+                            {risk.risk || "Untitled Risk"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{risk.status || "Not set"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                            {(risk.approvalStatus || "pending").charAt(0).toUpperCase() +
+                              (risk.approvalStatus || "pending").slice(1)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleEditRisk(risk.id)}
+                              className="rounded-lg border border-calpoly-green bg-white px-3 py-2 text-sm font-medium text-calpoly-green transition hover:bg-calpoly-green/5"
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           )}
         </>
@@ -558,36 +588,36 @@ export default function Home() {
       </button>
 
       {deleteRiskId && (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-black/40"
-              onClick={() => setDeleteRiskId(null)}
-            />
-            <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-              <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-red-700">Delete Risk</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Delete this risk permanently? This action cannot be undone.
-                </p>
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteRiskId(null)}
-                    className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={confirmDeleteRisk}
-                    className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
-                  >
-                    Confirm Delete
-                  </button>
-                </div>
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => setDeleteRiskId(null)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-red-700">Delete risk</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Delete this risk permanently? This action cannot be undone.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteRiskId(null)}
+                  className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteRisk}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+                >
+                  Confirm delete
+                </button>
               </div>
             </div>
-          </>
+          </div>
+        </>
       )}
     </div>
   );

@@ -28,7 +28,7 @@ const RiskCard: React.FC<RiskCardProps> = ({ risk, onEdit, onDelete }) => {
         : "Pending";
 
   return (
-    <div className="mb-2 rounded-lg border border-gray-200/80 bg-white p-3 transition hover:border-calpoly-green/20">
+    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-calpoly-green/30">
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

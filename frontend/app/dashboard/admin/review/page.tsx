@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, Clock, CheckCircle, XCircle, MoreHorizontal } from "lucide-react";
+import { ShieldCheck, Clock, CheckCircle, XCircle, MoreHorizontal, RefreshCw } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
 import { Risk } from "@/types";
 
@@ -361,549 +361,424 @@ export default function AdminReviewPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200 text-gray-800">
-      <div className="container mx-auto px-4 py-8 md:px-8">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-semibold tracking-widest text-calpoly-gold">
-              ADMIN
-            </p>
-            <h1 className="text-4xl font-bold text-calpoly-green">
-              Risk Review
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Review pending risks, view rejected with reasons, and manage
-              approved risks.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={fetchAll}
-              disabled={loading}
-              className="inline-flex items-center rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
-            >
-              Refresh data
-            </button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-calpoly-gold">
+            Admin
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-calpoly-green">
+            Risk Review
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Review pending risks, view rejected with reasons, and manage approved risks.
+          </p>
         </div>
-
-        {error && (
-          <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </section>
-        )}
-        {actionMessage && (
-          <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            {actionMessage}
-          </section>
-        )}
-
-        {!loading && (
-          <section className="mt-8 grid gap-4 sm:grid-cols-3">
-            <button
-              type="button"
-              onClick={() => setActiveTab("pending")}
-              className="rounded-2xl border border-calpoly-gold/40 bg-calpoly-gold/10 p-5 text-left shadow-sm transition hover:bg-calpoly-gold/20 focus:outline-none focus:ring-2 focus:ring-calpoly-gold/60"
-            >
-              <div className="flex items-center gap-3">
-                <Clock className="h-8 w-8 text-calpoly-gold" />
-                <div>
-                  <p className="text-sm font-semibold text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold text-calpoly-green">
-                    {pendingRisks.length}
-                  </p>
-                </div>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("approved")}
-              className="rounded-2xl border border-calpoly-green/40 bg-calpoly-green/10 p-5 text-left shadow-sm transition hover:bg-calpoly-green/20 focus:outline-none focus:ring-2 focus:ring-calpoly-gold/60"
-            >
-              <div className="flex items-center gap-3">
-                <CheckCircle className="h-8 w-8 text-calpoly-green" />
-                <div>
-                  <p className="text-sm font-semibold text-gray-600">
-                    Approved
-                  </p>
-                  <p className="text-2xl font-bold text-calpoly-green">
-                    {approvedRisks.length}
-                  </p>
-                </div>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("rejected")}
-              className="rounded-2xl border border-red-200 bg-red-50/80 p-5 text-left shadow-sm transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-calpoly-gold/60"
-            >
-              <div className="flex items-center gap-3">
-                <XCircle className="h-8 w-8 text-red-600" />
-                <div>
-                  <p className="text-sm font-semibold text-gray-600">
-                    Rejected
-                  </p>
-                  <p className="text-2xl font-bold text-red-700">
-                    {rejectedRisks.length}
-                  </p>
-                </div>
-              </div>
-            </button>
-          </section>
-        )}
-
-        <div className="mt-8 border-b border-gray-200">
-          <nav className="-mb-px flex flex-wrap gap-4 text-sm">
-            {[
-              { id: "pending", label: `Pending (${pendingRisks.length})` },
-              { id: "approved", label: `Approved (${approvedRisks.length})` },
-              { id: "rejected", label: `Rejected (${rejectedRisks.length})` },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() =>
-                  setActiveTab(
-                    tab.id as "pending" | "rejected" | "approved",
-                  )
-                }
-                className={`border-b-2 px-1 pb-2 text-sm font-medium ${
-                  activeTab === tab.id
-                    ? "border-calpoly-gold text-calpoly-green"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={fetchAll}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+          <Link
+            href="/dashboard/admin/users"
+            className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+          >
+            User Management
+          </Link>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+          >
+            Dashboard
+          </Link>
         </div>
+      </div>
 
-        {/* 1. Pending — no rejection reason column */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+      {actionMessage && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {actionMessage}
+        </div>
+      )}
+
+      {!loading && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab("pending")}
+            className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:border-calpoly-gold/50 hover:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-calpoly-gold/10">
+                <Clock className="h-5 w-5 text-calpoly-gold" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pending</p>
+                <p className="mt-1 text-2xl font-bold text-calpoly-green">{pendingRisks.length}</p>
+              </div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("approved")}
+            className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:border-calpoly-green/50 hover:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-calpoly-green/30"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-calpoly-green/10">
+                <CheckCircle className="h-5 w-5 text-calpoly-green" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Approved</p>
+                <p className="mt-1 text-2xl font-bold text-calpoly-green">{approvedRisks.length}</p>
+              </div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("rejected")}
+            className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:border-red-200 hover:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-red-200"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50">
+                <XCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Rejected</p>
+                <p className="mt-1 text-2xl font-bold text-red-700">{rejectedRisks.length}</p>
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <nav className="inline-flex rounded-lg bg-gray-100 p-1" aria-label="Tabs">
+          {[
+            { id: "pending" as const, label: "Pending", count: pendingRisks.length },
+            { id: "approved" as const, label: "Approved", count: approvedRisks.length },
+            { id: "rejected" as const, label: "Rejected", count: rejectedRisks.length },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                activeTab === tab.id
+                  ? "bg-white text-calpoly-green shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+
         {activeTab === "pending" && (
-        <section className="mt-6 rounded-2xl border border-calpoly-gold/30 bg-white/80 p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-calpoly-green">
-              Pending
-            </h2>
-            {pendingRisks.length > 0 && (
-              <button
-                type="button"
-                onClick={handleBulkApprovePending}
-                disabled={bulkApproving || selectedPendingIds.length === 0}
-                className="inline-flex items-center rounded-lg bg-calpoly-green px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-60"
-              >
-                {bulkApproving ? "Approving..." : "Approve Selected"}
-              </button>
+          <div className="mt-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-calpoly-green">Pending</h2>
+              {pendingRisks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleBulkApprovePending}
+                  disabled={bulkApproving || selectedPendingIds.length === 0}
+                  className="inline-flex items-center rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {bulkApproving ? "Approving…" : "Approve selected"}
+                </button>
+              )}
+            </div>
+            {loading ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">Loading…</div>
+            ) : pendingRisks.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-600">No pending risks.</div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full text-left text-sm text-gray-700">
+                  <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all pending risks"
+                          checked={pendingRisks.length > 0 && selectedPendingIds.length === pendingRisks.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedPendingIds(
+                                pendingRisks.map((r) => apiRiskToRisk(r).id ?? String(r.risk_id ?? r.id ?? "")),
+                              );
+                            } else {
+                              clearPendingSelection();
+                            }
+                          }}
+                        />
+                      </th>
+                      <th className="px-4 py-3">ID</th>
+                      <th className="px-4 py-3">Department</th>
+                      <th className="px-4 py-3">Category</th>
+                      <th className="px-4 py-3">Owner</th>
+                      <th className="px-4 py-3">Description</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {pendingRisks.map((r, idx) => {
+                      const risk = apiRiskToRisk(r);
+                      const rowKey = risk.id || String(r.riskIdNo ?? idx);
+                      return (
+                        <tr key={r.risk_id ?? r.id ?? idx} className="transition hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              aria-label="Select risk"
+                              checked={selectedPendingIds.includes(rowKey)}
+                              onChange={() => togglePendingSelected(rowKey)}
+                            />
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">{r.risk_id ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.department ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.category ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.owner ?? "—"}</td>
+                          <td className="max-w-xs truncate px-4 py-3 text-gray-600" title={r.risk_description ?? "—"}>
+                            {r.risk_description ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEdit(r)}
+                                className="rounded-lg border border-calpoly-green bg-white px-3 py-2 text-sm font-medium text-calpoly-green transition hover:bg-calpoly-green/5"
+                              >
+                                View / Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleApprove(risk)}
+                                className="rounded-lg bg-calpoly-green px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                              >
+                                Approve
+                              </button>
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenMenuFor(rowKey === openMenuFor ? null : rowKey)}
+                                  className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition hover:bg-gray-50"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                                {openMenuFor === rowKey && (
+                                  <div className="absolute right-0 z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                                    <button
+                                      type="button"
+                                      onClick={() => { openRejectDialog(risk); setOpenMenuFor(null); }}
+                                      disabled={rejectingId === risk.id}
+                                      className="flex w-full items-center px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                    >
+                                      Reject
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { openDeleteDialog(risk); setOpenMenuFor(null); }}
+                                      disabled={deletingId === risk.id}
+                                      className="flex w-full items-center px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
-          {loading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : pendingRisks.length === 0 ? (
-            <p className="text-gray-500">No pending risks.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all pending risks"
-                        checked={
-                          pendingRisks.length > 0 &&
-                          selectedPendingIds.length === pendingRisks.length
-                        }
-                        onChange={(event) => {
-                          if (event.target.checked) {
-                            setSelectedPendingIds(
-                              pendingRisks.map(
-                                (r) =>
-                                  apiRiskToRisk(r).id ??
-                                  String(r.risk_id ?? r.id ?? ""),
-                              ),
-                            );
-                          } else {
-                            clearPendingSelection();
-                          }
-                        }}
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      ID
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Department
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Category
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Owner
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Description
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {pendingRisks.map((r, idx) => {
-                    const risk = apiRiskToRisk(r);
-                    const rowKey = risk.id || String(r.riskIdNo ?? idx);
-                    return (
-                      <tr
-                        key={r.risk_id ?? r.id ?? idx}
-                        className="bg-white hover:bg-gray-50"
-                      >
-                        <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            aria-label="Select risk"
-                            checked={selectedPendingIds.includes(rowKey)}
-                            onChange={() => togglePendingSelected(rowKey)}
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-800">
-                          {r.risk_id ?? "--"}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-600">
-                          {r.department ?? "--"}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-600">
-                          {r.category ?? "--"}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-600">
-                          {r.owner ?? "--"}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-sm text-gray-600 max-w-xs truncate"
-                          title={r.risk_description ?? "--"}
-                        >
-                          {r.risk_description ?? "--"}
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(r)}
-                              className="rounded bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-300"
-                            >
-                              View / Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleApprove(risk)}
-                              className="rounded bg-calpoly-green px-2 py-1 text-xs font-semibold text-white hover:opacity-90"
-                            >
-                              Approve
-                            </button>
-                            <div className="relative ml-auto">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setOpenMenuFor(
-                                    rowKey === openMenuFor ? null : rowKey,
-                                  )
-                                }
-                                className="inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </button>
-                              {openMenuFor === rowKey && (
-                                <div className="absolute right-0 z-20 mt-1 w-32 rounded-md border border-gray-200 bg-white py-1 text-xs shadow-lg">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      openRejectDialog(risk);
-                                      setOpenMenuFor(null);
-                                    }}
-                                    disabled={rejectingId === risk.id}
-                                    className="flex w-full items-center px-3 py-1.5 text-left text-red-700 hover:bg-red-50 disabled:opacity-50"
-                                  >
-                                    Reject
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      openDeleteDialog(risk);
-                                      setOpenMenuFor(null);
-                                    }}
-                                    disabled={deletingId === risk.id}
-                                    className="flex w-full items-center px-3 py-1.5 text-left text-red-700 hover:bg-red-50 disabled:opacity-50"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
         )}
 
-        {/* 2. Rejected — with rejection reason */}
         {activeTab === "rejected" && (
-        <section className="mt-6 rounded-2xl border border-red-200 bg-red-50/30 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-calpoly-green mb-4">
-            Rejected
-          </h2>
-          {loading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : rejectedRisks.length === 0 ? (
-            <p className="text-gray-500">No rejected risks.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      ID
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Department
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Category
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Owner
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Description
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Rejection reason
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {rejectedRisks.map((r, idx) => {
-                    const risk = apiRiskToRisk(r);
-                    const rowKey = risk.id || String(r.riskIdNo ?? idx);
-                    return (
-                      <tr
-                        key={r.risk_id ?? r.id ?? idx}
-                        className="bg-white hover:bg-gray-50"
-                      >
-                        <td className="px-3 py-2 text-sm text-gray-800">
-                          {r.risk_id ?? "--"}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-600">
-                          {r.department ?? "--"}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-600">
-                          {r.category ?? "--"}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-600">
-                          {r.owner ?? "--"}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-sm text-gray-600 max-w-xs truncate"
-                          title={r.risk_description ?? "--"}
-                        >
-                          {r.risk_description ?? "--"}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-sm text-red-700 max-w-xs whitespace-normal"
-                          title={
-                            getRejectionReason(r) !== "--"
-                              ? getRejectionReason(r)
-                              : undefined
-                          }
-                        >
-                          {getRejectionReason(r)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(r)}
-                              className="rounded bg-calpoly-green/90 px-2 py-1 text-xs font-semibold text-white hover:opacity-90"
-                            >
-                              View / Edit
-                            </button>
-                            <div className="relative ml-auto">
+          <div className="mt-6">
+            <h2 className="mb-4 text-lg font-semibold text-calpoly-green">Rejected</h2>
+            {loading ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">Loading…</div>
+            ) : rejectedRisks.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-600">No rejected risks.</div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full text-left text-sm text-gray-700">
+                  <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th className="px-4 py-3">ID</th>
+                      <th className="px-4 py-3">Department</th>
+                      <th className="px-4 py-3">Category</th>
+                      <th className="px-4 py-3">Owner</th>
+                      <th className="px-4 py-3">Description</th>
+                      <th className="px-4 py-3">Rejection reason</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {rejectedRisks.map((r, idx) => {
+                      const risk = apiRiskToRisk(r);
+                      const rowKey = risk.id || String(r.riskIdNo ?? idx);
+                      return (
+                        <tr key={r.risk_id ?? r.id ?? idx} className="transition hover:bg-gray-50">
+                          <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">{r.risk_id ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.department ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.category ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.owner ?? "—"}</td>
+                          <td className="max-w-xs truncate px-4 py-3 text-gray-600" title={r.risk_description ?? "—"}>
+                            {r.risk_description ?? "—"}
+                          </td>
+                          <td className="max-w-xs px-4 py-3 text-sm text-red-700 whitespace-normal" title={getRejectionReason(r) !== "—" ? getRejectionReason(r) : undefined}>
+                            {getRejectionReason(r)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <button
                                 type="button"
-                                onClick={() =>
-                                  setOpenMenuFor(
-                                    rowKey === openMenuFor ? null : rowKey,
-                                  )
-                                }
-                                className="inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                                onClick={() => openEdit(r)}
+                                className="rounded-lg border border-calpoly-green bg-white px-3 py-2 text-sm font-medium text-calpoly-green transition hover:bg-calpoly-green/5"
                               >
-                                <MoreHorizontal className="h-4 w-4" />
+                                View / Edit
                               </button>
-                              {openMenuFor === rowKey && (
-                                <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-gray-200 bg-white py-1 text-xs shadow-lg">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleApprove(risk);
-                                      setOpenMenuFor(null);
-                                    }}
-                                    className="flex w-full items-center px-3 py-1.5 text-left text-gray-700 hover:bg-gray-50"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      openDeleteDialog(risk);
-                                      setOpenMenuFor(null);
-                                    }}
-                                    disabled={deletingId === risk.id}
-                                    className="flex w-full items-center px-3 py-1.5 text-left text-red-700 hover:bg-red-50 disabled:opacity-50"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenMenuFor(rowKey === openMenuFor ? null : rowKey)}
+                                  className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition hover:bg-gray-50"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                                {openMenuFor === rowKey && (
+                                  <div className="absolute right-0 z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                                    <button
+                                      type="button"
+                                      onClick={() => { handleApprove(risk); setOpenMenuFor(null); }}
+                                      className="flex w-full items-center px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { openDeleteDialog(risk); setOpenMenuFor(null); }}
+                                      disabled={deletingId === risk.id}
+                                      className="flex w-full items-center px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* 3. Approved */}
         {activeTab === "approved" && (
-        <section className="mt-6 rounded-2xl border border-calpoly-green/30 bg-white/80 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-calpoly-green mb-4">
-            Approved
-          </h2>
-          {loading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : approvedRisks.length === 0 ? (
-            <p className="text-gray-500">No approved risks yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      ID
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Department
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Category
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Owner
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Description
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-calpoly-green uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {approvedRisks.map((r, idx) => {
-                    const risk = apiRiskToRisk(r);
-                    const rowKey = risk.id || String(r.riskIdNo ?? idx);
-                    return (
-                    <tr
-                      key={r.risk_id ?? r.id ?? idx}
-                      className="bg-white hover:bg-gray-50"
-                    >
-                      <td className="px-3 py-2 text-sm text-gray-800">
-                        {r.risk_id ?? "--"}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-600">
-                        {r.department ?? "--"}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-600">
-                        {r.category ?? "--"}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-600">
-                        {r.owner ?? "--"}
-                      </td>
-                      <td
-                        className="px-3 py-2 text-sm text-gray-600 max-w-xs truncate"
-                        title={r.risk_description ?? "--"}
-                      >
-                        {r.risk_description ?? "--"}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(r)}
-                            className="rounded bg-calpoly-green/90 px-2 py-1 text-xs font-semibold text-white hover:opacity-90"
-                          >
-                            View / Edit
-                          </button>
-                          <div className="relative ml-auto">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOpenMenuFor(
-                                  rowKey === openMenuFor ? null : rowKey,
-                                )
-                              }
-                              className="inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                            {openMenuFor === rowKey && (
-                              <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-gray-200 bg-white py-1 text-xs shadow-lg">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    openRejectDialog(risk);
-                                    setOpenMenuFor(null);
-                                  }}
-                                  className="flex w-full items-center px-3 py-1.5 text-left text-red-700 hover:bg-red-50"
-                                >
-                                  Reject
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    openDeleteDialog(risk);
-                                    setOpenMenuFor(null);
-                                  }}
-                                  disabled={deletingId === risk.id}
-                                  className="flex w-full items-center px-3 py-1.5 text-left text-red-700 hover:bg-red-50 disabled:opacity-50"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
+          <div className="mt-6">
+            <h2 className="mb-4 text-lg font-semibold text-calpoly-green">Approved</h2>
+            {loading ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">Loading…</div>
+            ) : approvedRisks.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-600">No approved risks yet.</div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full text-left text-sm text-gray-700">
+                  <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th className="px-4 py-3">ID</th>
+                      <th className="px-4 py-3">Department</th>
+                      <th className="px-4 py-3">Category</th>
+                      <th className="px-4 py-3">Owner</th>
+                      <th className="px-4 py-3">Description</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
-                  )})}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {approvedRisks.map((r, idx) => {
+                      const risk = apiRiskToRisk(r);
+                      const rowKey = risk.id || String(r.riskIdNo ?? idx);
+                      return (
+                        <tr key={r.risk_id ?? r.id ?? idx} className="transition hover:bg-gray-50">
+                          <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">{r.risk_id ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.department ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.category ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-600">{r.owner ?? "—"}</td>
+                          <td className="max-w-xs truncate px-4 py-3 text-gray-600" title={r.risk_description ?? "—"}>
+                            {r.risk_description ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEdit(r)}
+                                className="rounded-lg border border-calpoly-green bg-white px-3 py-2 text-sm font-medium text-calpoly-green transition hover:bg-calpoly-green/5"
+                              >
+                                View / Edit
+                              </button>
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenMenuFor(rowKey === openMenuFor ? null : rowKey)}
+                                  className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition hover:bg-gray-50"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                                {openMenuFor === rowKey && (
+                                  <div className="absolute right-0 z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                                    <button
+                                      type="button"
+                                      onClick={() => { openRejectDialog(risk); setOpenMenuFor(null); }}
+                                      className="flex w-full items-center px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                                    >
+                                      Reject
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { openDeleteDialog(risk); setOpenMenuFor(null); }}
+                                      disabled={deletingId === risk.id}
+                                      className="flex w-full items-center px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -935,26 +810,24 @@ export default function AdminReviewPage() {
             }}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
-              <h3 className="text-lg font-semibold text-calpoly-green">
-                Reject Risk
-              </h3>
+            <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-calpoly-green">Reject risk</h3>
               <p className="mt-2 text-sm text-gray-600">
                 Add an optional reason for rejecting this risk.
               </p>
               <textarea
                 value={rejectReason}
-                onChange={(event) => setRejectReason(event.target.value)}
+                onChange={(e) => setRejectReason(e.target.value)}
                 rows={4}
                 placeholder="Reason (optional)"
-                className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+                className="mt-3 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
               />
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setRejectDialogRisk(null)}
                   disabled={Boolean(rejectingId)}
-                  className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -962,9 +835,9 @@ export default function AdminReviewPage() {
                   type="button"
                   onClick={() => void handleReject(rejectDialogRisk, rejectReason)}
                   disabled={Boolean(rejectingId)}
-                  className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
                 >
-                  {rejectingId ? "Rejecting..." : "Confirm Reject"}
+                  {rejectingId ? "Rejecting…" : "Confirm reject"}
                 </button>
               </div>
             </div>
@@ -982,8 +855,8 @@ export default function AdminReviewPage() {
             }}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
-              <h3 className="text-lg font-semibold text-red-700">Delete Risk</h3>
+            <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-red-700">Delete risk</h3>
               <p className="mt-2 text-sm text-gray-600">
                 Delete this risk permanently? This action cannot be undone.
               </p>
@@ -992,7 +865,7 @@ export default function AdminReviewPage() {
                   type="button"
                   onClick={() => setDeleteDialogRisk(null)}
                   disabled={Boolean(deletingId)}
-                  className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1000,9 +873,9 @@ export default function AdminReviewPage() {
                   type="button"
                   onClick={() => void handleDelete(deleteDialogRisk)}
                   disabled={Boolean(deletingId)}
-                  className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
                 >
-                  {deletingId ? "Deleting..." : "Confirm Delete"}
+                  {deletingId ? "Deleting…" : "Confirm delete"}
                 </button>
               </div>
             </div>

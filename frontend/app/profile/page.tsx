@@ -12,6 +12,7 @@ import {
   Eye,
   Shield,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
 import { Risk } from "@/types";
@@ -191,13 +192,13 @@ function RiskRow({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <span className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700">
+        <span className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700">
           Residual {residual}
         </span>
         <button
           type="button"
           onClick={onView}
-          className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-calpoly-green bg-white px-3 py-2 text-sm font-medium text-calpoly-green transition hover:bg-calpoly-green/5"
         >
           <Eye className="h-4 w-4" />
           View
@@ -233,7 +234,7 @@ function RejectedRow({ risk, onView }: { risk: ApiRisk; onView: () => void }) {
         <button
           type="button"
           onClick={onView}
-          className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-calpoly-green bg-white px-3 py-2 text-sm font-medium text-calpoly-green transition hover:bg-calpoly-green/5"
         >
           <Eye className="h-4 w-4" />
           View
@@ -255,12 +256,12 @@ function EmptySection({
   actionHref: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-gray-600">
-      <p className="font-medium">{message}</p>
-      <p className="mt-1 text-sm">{subMessage}</p>
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
+      <p className="font-medium text-gray-800">{message}</p>
+      <p className="mt-1 text-sm text-gray-600">{subMessage}</p>
       <Link
         href={actionHref}
-        className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-calpoly-green hover:underline"
+        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-calpoly-green px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
       >
         {actionLabel}
         <ArrowRight className="h-4 w-4" />
@@ -440,20 +441,22 @@ export default function ProfilePage() {
 
   if (loading && !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Loading your profile...</p>
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="rounded-lg border border-gray-200 bg-white px-6 py-4 text-sm text-gray-600 shadow-sm">
+          Loading your profile…
+        </div>
       </div>
     );
   }
 
   if (error && !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="rounded-lg border border-gray-300 bg-white p-6 text-center max-w-md shadow-sm">
-          <p className="text-gray-800 font-medium">{error}</p>
+      <div className="flex min-h-[40vh] items-center justify-center px-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm max-w-md">
+          <p className="font-medium text-gray-800">{error}</p>
           <Link
             href="/login?returnTo=/profile"
-            className="mt-4 inline-block text-sm font-medium text-calpoly-green hover:underline"
+            className="mt-4 inline-flex items-center rounded-lg bg-calpoly-green px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
           >
             Sign in again
           </Link>
@@ -475,87 +478,105 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
-      <div className="container mx-auto px-4 py-8 md:px-8">
-        <header className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600">
-                <User className="h-6 w-6" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-bold text-gray-900">
-                    My Profile
-                  </h1>
-                  {isAdmin && (
-                    <span className="inline-flex items-center gap-1 rounded border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                      <Shield className="h-3 w-3" />
-                      Admin
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-sm text-gray-600">{displayName}</p>
-                {user?.email && user.email !== displayName && (
-                  <p className="text-xs text-gray-500">{user.email}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href="/"
-                className="inline-flex items-center rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-              >
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Risk Tool
-              </Link>
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center rounded bg-calpoly-green px-3 py-2 text-sm font-medium text-white transition hover:opacity-90"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/api/auth/logout"
-                className="inline-flex items-center rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-              >
-                Sign Out
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        <div className="mt-6 border-b border-gray-200 bg-white shadow-sm">
-          <nav className="flex gap-0" aria-label="Tabs">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`border-b-2 px-6 py-4 text-sm font-medium transition ${
-                  activeTab === tab.id
-                    ? "border-calpoly-green text-calpoly-green"
-                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                }`}
-              >
-                {tab.label}
-                {tab.count != null && tab.count > 0 && (
-                  <span className="ml-2 rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
+    <div className="space-y-6">
+      {/* Page header: eyebrow + title + subtitle, aligned with Dashboard / Risk Register */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-calpoly-gold">
+            Account
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-calpoly-green">
+            Profile
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Your risks and activity. {isAdmin ? "Admin actions appear in separate tabs." : ""}
+          </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => refetchRisks()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Risk Register
+          </Link>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/api/auth/logout"
+            className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+          >
+            Sign Out
+          </Link>
+        </div>
+      </div>
 
-        <div className="mt-0 rounded-b-lg border border-t-0 border-gray-200 bg-white p-6 shadow-sm">
+      {/* User summary card */}
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-calpoly-green/10 text-calpoly-green">
+            <User className="h-7 w-7" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-lg font-semibold text-gray-900">{displayName}</p>
+              {isAdmin && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-calpoly-gold/50 bg-calpoly-gold/10 px-2.5 py-0.5 text-xs font-medium text-calpoly-green">
+                  <Shield className="h-3 w-3" />
+                  Admin
+                </span>
+              )}
+            </div>
+            {user?.email && (
+              <p className="mt-0.5 text-sm text-gray-600">{user.email}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Tabs: same pattern as Risk Register (rounded pill container) */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <nav className="inline-flex rounded-lg bg-gray-100 p-1" aria-label="Tabs">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                activeTab === tab.id
+                  ? "bg-white text-calpoly-green shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              {tab.label}
+              {tab.count != null && tab.count > 0 && (
+                <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mt-6">
           {activeTab === "entered" && (
             <div className="space-y-8">
-              {/* Pending */}
-              <section className="rounded-lg border border-gray-200 border-l-4 border-l-gray-400 bg-gray-50/50 p-4">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
-                  <Clock className="h-4 w-4 text-gray-500" />
+              <section className="rounded-lg border border-gray-200 border-l-4 border-l-calpoly-gold bg-gray-50/50 p-5">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
+                  <Clock className="h-4 w-4 text-calpoly-gold" />
                   Pending approval
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
@@ -582,10 +603,9 @@ export default function ProfilePage() {
                 )}
               </section>
 
-              {/* Approved */}
-              <section className="rounded-lg border border-gray-200 border-l-4 border-l-gray-600 bg-gray-50/50 p-4">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
-                  <CheckCircle className="h-4 w-4 text-gray-500" />
+              <section className="rounded-lg border border-gray-200 border-l-4 border-l-calpoly-green bg-gray-50/50 p-5">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
+                  <CheckCircle className="h-4 w-4 text-calpoly-green" />
                   Approved
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
@@ -612,10 +632,9 @@ export default function ProfilePage() {
                 )}
               </section>
 
-              {/* Rejected */}
-              <section className="rounded-lg border border-gray-200 border-l-4 border-l-gray-500 bg-gray-50/50 p-4">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
-                  <XCircle className="h-4 w-4 text-gray-500" />
+              <section className="rounded-lg border border-gray-200 border-l-4 border-l-amber-500 bg-gray-50/50 p-5">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
+                  <XCircle className="h-4 w-4 text-amber-600" />
                   Rejected
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
@@ -644,7 +663,8 @@ export default function ProfilePage() {
 
           {activeTab === "approved" && isAdmin && (
             <div>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-calpoly-green">Risks you approved</h2>
+              <p className="mt-1 text-sm text-gray-500">
                 Risks you have approved as an admin.
               </p>
               {loading ? (
@@ -674,7 +694,8 @@ export default function ProfilePage() {
 
           {activeTab === "rejected" && isAdmin && (
             <div>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-calpoly-green">Risks you rejected</h2>
+              <p className="mt-1 text-sm text-gray-500">
                 Risks you have rejected as an admin.
               </p>
               {loading ? (

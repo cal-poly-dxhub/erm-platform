@@ -31,7 +31,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [pendingAdminCount, setPendingAdminCount] = useState<number | null>(
     null,
   );
+  const [hash, setHash] = useState("");
   const isLogin = pathname === "/login";
+
+  useEffect(() => {
+    if (pathname !== "/") return;
+    const read = () => setHash((typeof window !== "undefined" ? window.location.hash : "").replace("#", ""));
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, [pathname]);
 
   useEffect(() => {
     if (isLogin) return;
@@ -106,8 +115,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <div className="flex flex-col gap-1">
             <Link
               href="/#register"
+              onClick={(e) => {
+                if (pathname === "/" && typeof window !== "undefined") {
+                  e.preventDefault();
+                  window.location.hash = "#register";
+                  window.dispatchEvent(new Event("openRiskRegister"));
+                }
+              }}
               className={
-                navLink + (pathname === "/" ? " " + navLinkActive : "")
+                navLink +
+                (pathname === "/" && hash !== "gap" && hash !== "submit"
+                  ? " " + navLinkActive
+                  : "")
               }
             >
               <LayoutGrid className="h-5 w-5 shrink-0" />
@@ -136,7 +155,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   window.dispatchEvent(new Event("openGapAnalysis"));
                 }
               }}
-              className={navLink}
+              className={
+                navLink + (pathname === "/" && hash === "gap" ? " " + navLinkActive : "")
+              }
             >
               <GitBranch className="h-5 w-5 shrink-0" />
               Gap Analysis
