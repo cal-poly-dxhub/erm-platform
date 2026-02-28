@@ -115,6 +115,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </Link>
             <Link
               href="/#submit"
+              onClick={(event) => {
+                if (pathname === "/" && typeof window !== "undefined") {
+                  event.preventDefault();
+                  window.location.hash = "#submit";
+                  window.dispatchEvent(new Event("openSubmitRisk"));
+                }
+              }}
               className={navLink}
             >
               <FilePlus2 className="h-5 w-5 shrink-0" />

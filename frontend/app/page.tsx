@@ -187,7 +187,7 @@ export default function Home() {
     fetchRisks();
   }, []);
 
-  // Sync view with URL hash (#register | #gap | #submit) and open modal if needed
+  // Sync view with URL hash (#register | #gap) on load/hash change
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -198,18 +198,28 @@ export default function Home() {
       } else {
         setCurrentView("register");
       }
-
-      if (openedFromQueryRef.current) return;
       if (hash === "submit") {
         setEditingRisk({ id: "new" } as Risk);
         setIsModalOpen(true);
-        openedFromQueryRef.current = true;
       }
     };
 
     applyFromHash();
     window.addEventListener("hashchange", applyFromHash);
     return () => window.removeEventListener("hashchange", applyFromHash);
+  }, []);
+
+  // Always open "Submit Risk" modal when sidebar dispatches an event
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      setCurrentView("register");
+      setEditingRisk({ id: "new" } as Risk);
+      setIsModalOpen(true);
+    };
+    window.addEventListener("openSubmitRisk", handler as EventListener);
+    return () =>
+      window.removeEventListener("openSubmitRisk", handler as EventListener);
   }, []);
 
   const handleSaveRisk = (_riskData: Risk) => {

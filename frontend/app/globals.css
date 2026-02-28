@@ -67,6 +67,13 @@ body {
   animation: slideIn 0.3s forwards;
 }
 
+@media (min-width: 1024px) {
+  .modal {
+    /* Center the modal within the content area to the right of the 16rem sidebar */
+    left: calc(50% + 8rem);
+  }
+}
+
 .ai-suggestion-box,
 .analytics-card {
   display: none;
