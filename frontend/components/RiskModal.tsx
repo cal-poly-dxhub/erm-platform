@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X, Sparkles, HelpCircle, ShieldAlert, Lock } from "lucide-react";
 import {
   likelihoods,
@@ -454,18 +455,31 @@ const RiskModal: React.FC<RiskModalProps> = ({
     </div>
   `;
 
+  // When modal is open, lock body scroll so no white strip appears above the backdrop
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <>
       <div
         className="modal-backdrop"
         style={{ display: "block" }}
         onClick={onClose}
+        aria-hidden="true"
       />
       <div
         className="modal w-full max-w-6xl bg-white rounded-lg shadow-2xl border border-gray-200"
         style={{ display: "block" }}
+        role="dialog"
+        aria-modal="true"
       >
         <form onSubmit={handleSubmit} className="p-6">
           <div className="flex justify-between items-center pb-3 border-b border-gray-200">
@@ -1096,6 +1110,8 @@ const RiskModal: React.FC<RiskModalProps> = ({
       </div>
     </>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : null;
 };
 
 export default RiskModal;
