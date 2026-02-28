@@ -28,52 +28,55 @@ const RiskCard: React.FC<RiskCardProps> = ({ risk, onEdit, onDelete }) => {
         : "Pending";
 
   return (
-    <div className="bg-white rounded-lg shadow-sm mb-4 p-5 border border-gray-200 transition-all hover:border-calpoly-gold hover:shadow-md">
-      <div className="flex flex-col md:flex-row justify-between items-start">
-        <div className="flex-grow">
+    <div className="mb-2 rounded-lg border border-gray-200/80 bg-white p-3 transition hover:border-calpoly-green/20">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm text-gray-500 font-medium">
+            <span className="text-xs font-medium text-gray-500">
               {risk.riskIdNo || "No ID"}
-            </p>
+            </span>
             <span
-              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${approvalBadgeClass}`}
+              className={`inline-flex rounded px-1.5 py-0.5 text-xs font-medium ${approvalBadgeClass}`}
             >
               {approvalLabel}
             </span>
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
+          <h2 className="mt-1 text-sm font-semibold text-calpoly-green">
             {risk.risk || "Untitled Risk"}
           </h2>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <span>
-              <Building2 className="inline w-4 h-4 mr-1 text-gray-400" />
-              {risk.collegeUnit || "-"}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
+            <span className="inline-flex items-center gap-1">
+              <Building2 className="h-3.5 w-3.5 shrink-0" />
+              {risk.collegeUnit || "—"}
             </span>
-            <span className="text-gray-300">&bull;</span>
-            <span>
-              <UserCircle className="inline w-4 h-4 mr-1 text-gray-400" />
-              {risk.owner || "-"}
+            <span className="inline-flex items-center gap-1">
+              <UserCircle className="h-3.5 w-3.5 shrink-0" />
+              {risk.owner || "—"}
             </span>
           </div>
         </div>
-        <div className="flex space-x-2 mt-4 md:mt-0">
+        <div className="flex shrink-0 gap-1">
           <button
+            type="button"
             onClick={() => onEdit(risk.id)}
-            className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-md"
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-calpoly-green"
+            aria-label="Edit"
           >
-            <Edit className="w-5 h-5" />
+            <Edit className="h-4 w-4" />
           </button>
           <button
+            type="button"
             onClick={() => onDelete(risk.id)}
-            className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md"
+            className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
+            aria-label="Delete"
           >
-            <Trash2 className="w-5 h-5" />
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-200 pt-4">
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-          <h4 className="font-semibold mb-2 text-gray-600">Baseline Risk</h4>
+      <div className="mt-3 grid grid-cols-1 gap-2 border-t border-gray-100 pt-3 md:grid-cols-3">
+        <div className="rounded-lg bg-gray-50/80 px-3 py-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Baseline Risk</h4>
           <div className="flex justify-between items-center">
             <span className="text-sm">Rating:</span>
             <span
@@ -89,8 +92,8 @@ const RiskCard: React.FC<RiskCardProps> = ({ risk, onEdit, onDelete }) => {
             <span className="font-bold">{baselineData.score}</span>
           </div>
         </div>
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-          <h4 className="font-semibold mb-2 text-gray-600">Residual Risk</h4>
+        <div className="rounded-lg bg-gray-50/80 px-3 py-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Residual Risk</h4>
           <div className="flex justify-between items-center">
             <span className="text-sm">Rating:</span>
             <span
@@ -106,8 +109,8 @@ const RiskCard: React.FC<RiskCardProps> = ({ risk, onEdit, onDelete }) => {
             <span className="font-bold">{residualData.score}</span>
           </div>
         </div>
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-          <h4 className="font-semibold mb-2 text-gray-600">Status</h4>
+        <div className="rounded-lg bg-gray-50/80 px-3 py-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</h4>
           <div className="text-center">
             <span className="font-bold text-lg text-calpoly-gold">
               {risk.status || "Not Set"}

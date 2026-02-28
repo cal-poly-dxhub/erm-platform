@@ -11,8 +11,11 @@ import { getRiskData } from "@/utils/riskCalculations";
 import { analyzeTextForSuggestions } from "@/utils/aiSuggestions";
 import { generateMitigationSteps } from "@/utils/gemini";
 import { assessRisk } from "@/utils/lambdaApi";
-import { generateMitigationStrategies, MitigationStrategy } from "@/utils/mitigationApi";
-import { Risk } from "@/types";
+import {
+  generateMitigationStrategies,
+  MitigationStrategy,
+} from "@/utils/mitigationApi";
+import { Risk, RiskData } from "@/types";
 
 interface RiskModalProps {
   isOpen: boolean;
@@ -21,9 +24,28 @@ interface RiskModalProps {
   onSave: (riskData: Risk) => void;
   /** When true, form is read-only and only a Close button is shown. */
   readOnly?: boolean;
+  /** When true, the modal is being used from the Admin Review screen. */
+  isAdminReview?: boolean;
+  /** Optional callback to approve the risk from within the modal. */
+  onApprove?: () => void | Promise<void>;
+  /**
+   * Optional callback to reject the risk from within the modal.
+   * The reason string is up to the caller (can be empty).
+   */
+  onReject?: (reason: string) => void | Promise<void>;
 }
 
-const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, readOnly = false }) => {
+const RiskModal: React.FC<RiskModalProps> = ({
+  isOpen,
+  onClose,
+  risk,
+  onSave,
+  readOnly = false,
+  // Currently unused but accepted so Admin Review can pass them.
+  isAdminReview, // eslint-disable-line @typescript-eslint/no-unused-vars
+  onApprove, // eslint-disable-line @typescript-eslint/no-unused-vars
+  onReject, // eslint-disable-line @typescript-eslint/no-unused-vars
+}) => {
   const [formData, setFormData] = useState({
     riskIdNo: "",
     
@@ -69,7 +91,8 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
     isAttorneyClientPrivilege: false,
   });
 
-  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [aiSuggestion, setAiSuggestion] =
+    useState<ReturnType<typeof analyzeTextForSuggestions>>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [mitigationStrategies, setMitigationStrategies] = useState<MitigationStrategy[]>([]);
   const [lambdaSuggestion, setLambdaSuggestion] = useState<{
@@ -83,12 +106,12 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
   const [lambdaError, setLambdaError] = useState<string | null>(null);
   const lambdaCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const [baselineData, setBaselineData] = useState({
+  const [baselineData, setBaselineData] = useState<RiskData>({
     score: "-",
     rating: "-",
     response: "-",
   });
-  const [residualData, setResidualData] = useState({
+  const [residualData, setResidualData] = useState<RiskData>({
     score: "-",
     rating: "-",
     response: "-",
@@ -307,7 +330,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
     );
   };
 
-  const handleChange = (field, value) => {
+  const handleChange = (field: keyof typeof formData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -346,7 +369,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
     }
   };
 
-  const applySuggestion = (field, value) => {
+  const applySuggestion = (field: keyof typeof formData, value: unknown) => {
     handleChange(field, value);
   };
 
@@ -606,7 +629,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
                   Risk Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  rows="3"
+                  rows={3}
                   required
                   value={formData.risk}
                   onChange={(e) => handleChange("risk", e.target.value)}
@@ -619,7 +642,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
                   Risk Analysis <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  rows="3"
+                  rows={3}
                   required
                   value={formData.riskAnalysis}
                   onChange={(e) => handleChange("riskAnalysis", e.target.value)}
@@ -655,7 +678,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
                   Current Control Measures <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  rows="3"
+                  rows={3}
                   required
                   value={formData.currentControls}
                   onChange={(e) =>
@@ -710,13 +733,25 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
               <div className="col-span-2 grid grid-cols-3 gap-4 bg-white p-3 rounded-lg border border-gray-200">
                 <div className="text-center">
                   <label className="block text-sm font-medium text-gray-500 mb-1">Rating</label>
-                  <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[baselineData.rating] || "bg-gray-100 text-gray-800"}`}>
+                  <div
+                    className={`font-bold text-lg p-2 rounded-md ${
+                      ratingColors[
+                        baselineData.rating as keyof typeof ratingColors
+                      ] || "bg-gray-100 text-gray-800"
+                    }`}
+                  >
                     {baselineData.rating}
                   </div>
                 </div>
                 <div className="text-center">
                   <label className="block text-sm font-medium text-gray-500 mb-1">Score</label>
-                  <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[baselineData.rating] || "bg-gray-100 text-gray-800"}`}>
+                  <div
+                    className={`font-bold text-lg p-2 rounded-md ${
+                      ratingColors[
+                        baselineData.rating as keyof typeof ratingColors
+                      ] || "bg-gray-100 text-gray-800"
+                    }`}
+                  >
                     {baselineData.score}
                   </div>
                 </div>
@@ -750,7 +785,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
                   Additional Control Measures <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  rows="4"
+                  rows={4}
                   required
                   value={formData.additionalControls}
                   onChange={(e) => handleChange("additionalControls", e.target.value)}
@@ -797,13 +832,25 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
               <div className="col-span-2 grid grid-cols-3 gap-4 bg-white p-3 rounded-lg border border-gray-200">
                 <div className="text-center">
                    <label className="block text-sm font-medium text-gray-500 mb-1">Rating</label>
-                   <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[residualData.rating] || "bg-gray-100 text-gray-800"}`}>
+                  <div
+                    className={`font-bold text-lg p-2 rounded-md ${
+                      ratingColors[
+                        residualData.rating as keyof typeof ratingColors
+                      ] || "bg-gray-100 text-gray-800"
+                    }`}
+                  >
                      {residualData.rating}
                    </div>
                 </div>
                 <div className="text-center">
                    <label className="block text-sm font-medium text-gray-500 mb-1">Score</label>
-                   <div className={`font-bold text-lg p-2 rounded-md ${ratingColors[residualData.rating] || "bg-gray-100 text-gray-800"}`}>
+                  <div
+                    className={`font-bold text-lg p-2 rounded-md ${
+                      ratingColors[
+                        residualData.rating as keyof typeof ratingColors
+                      ] || "bg-gray-100 text-gray-800"
+                    }`}
+                  >
                      {residualData.score}
                    </div>
                 </div>
@@ -947,7 +994,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
                   College/Unit Leadership Comments
                 </label>
                 <textarea
-                  rows="3"
+                  rows={3}
                   value={formData.leadershipComments}
                   onChange={(e) => handleChange("leadershipComments", e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
@@ -959,7 +1006,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
                  <div>
                     <label className="block text-sm font-medium text-gray-600 mb-1">ERM Comments</label>
                     <textarea
-                      rows="3"
+                      rows={3}
                       value={formData.ermComments}
                       onChange={(e) => handleChange("ermComments", e.target.value)}
                       className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2"
@@ -970,7 +1017,7 @@ const RiskModal: React.FC<RiskModalProps> = ({ isOpen, onClose, risk, onSave, re
                        <Sparkles className="w-3 h-3 mr-1" /> EHS Comments (Env. Health & Safety)
                     </label>
                     <textarea
-                      rows="3"
+                      rows={3}
                       value={formData.ehsComments}
                       onChange={(e) => handleChange("ehsComments", e.target.value)}
                       className="w-full bg-green-50 border border-green-200 rounded-md shadow-sm px-3 py-2"

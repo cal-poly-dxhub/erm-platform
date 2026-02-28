@@ -1,6 +1,7 @@
 body {
-  font-family: "Inter", sans-serif;
-  background-color: #f4f4f5;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  background-color: #f8f9fa;
+  -webkit-font-smoothing: antialiased;
 }
 
 .tooltip {

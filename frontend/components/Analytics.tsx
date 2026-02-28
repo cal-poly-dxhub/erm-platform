@@ -27,16 +27,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ risks }) => {
       risks.length > 0 ? (totalResidual / risks.length).toFixed(1) : "0";
 
     // Category distribution
-    const categoryCounts = risks.reduce((acc, r) => {
-      acc[r.riskCategory] = (acc[r.riskCategory] || 0) + 1;
+    const categoryCounts = risks.reduce<Record<string, number>>((acc, r) => {
+      const key = r.riskCategory || "Uncategorized";
+      acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
     const sortedCategories = Object.entries(categoryCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5);
 
     // Unit distribution
-    const unitCounts = risks.reduce((acc, r) => {
+    const unitCounts = risks.reduce<Record<string, number>>((acc, r) => {
       const unit = r.collegeUnit || "N/A";
       acc[unit] = (acc[unit] || 0) + 1;
       return acc;
@@ -66,7 +67,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ risks }) => {
   }, [risks]);
 
   const chartColors = ["#003831", "#B29A6C", "#f97316", "#22c55e", "#64748b"];
-  const maxUnitCount = Math.max(...Object.values(analytics.unitCounts), 0);
+  const maxUnitCount = Math.max(
+    ...(Object.values(analytics.unitCounts) as number[]),
+    0,
+  );
 
   let totalOffset = 0;
   const donutSVG = (
@@ -226,11 +230,19 @@ const Analytics: React.FC<AnalyticsProps> = ({ risks }) => {
                       {score}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ratingColors[rating]}`}
-                      >
-                        {rating}
-                      </span>
+                      {(() => {
+                        const color =
+                          ratingColors[
+                            rating as keyof typeof ratingColors
+                          ] ?? "";
+                        return (
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color}`}
+                          >
+                            {rating}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );

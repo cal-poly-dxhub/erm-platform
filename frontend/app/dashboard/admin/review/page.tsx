@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, Clock, CheckCircle, XCircle, Users } from "lucide-react";
+import { ShieldCheck, Clock, CheckCircle, XCircle } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
-import HeatMap from "@/components/HeatMap";
 import { Risk } from "@/types";
 
 type ApiRisk = {
@@ -126,21 +125,6 @@ export default function AdminReviewPage() {
     () => allRisks.filter((r) => r.approval_status === "approved"),
     [allRisks],
   );
-
-  // Map risks for the Heat Map
-  const activeRisksForHeatMap = useMemo(() => {
-    // Only show Pending and Approved risks in the heat map (ignore rejected)
-    return allRisks
-      .filter((r) => r.approval_status !== "rejected")
-      .map(apiRiskToRisk);
-  }, [allRisks]);
-
-  const handleHeatMapEdit = (id: string) => {
-    const foundApiRisk = allRisks.find((r) => String(r.id) === id || r.risk_id === id);
-    if (foundApiRisk) {
-      openEdit(foundApiRisk);
-    }
-  };
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -337,26 +321,13 @@ export default function AdminReviewPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/dashboard/admin/users"
-              className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
-            >
-              <Users className="mr-2 h-4 w-4" />
-              User Management
-            </Link>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
-            >
-              <ShieldCheck className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
             <button
+              type="button"
               onClick={fetchAll}
               disabled={loading}
               className="inline-flex items-center rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
             >
-              Refresh
+              Refresh data
             </button>
           </div>
         </div>
@@ -510,13 +481,6 @@ export default function AdminReviewPage() {
             </div>
           )}
         </section>
-
-        {/* --- HEAT MAP SECTION (MOVED HERE) --- */}
-        {!loading && activeRisksForHeatMap.length > 0 && (
-          <div className="mt-8">
-            <HeatMap risks={activeRisksForHeatMap} onEdit={handleHeatMapEdit} />
-          </div>
-        )}
 
         {/* 2. Rejected — with rejection reason */}
         <section className="mt-8 rounded-2xl border border-red-200 bg-red-50/30 p-6 shadow-sm">

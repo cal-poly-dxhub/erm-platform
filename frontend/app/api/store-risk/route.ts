@@ -4,18 +4,18 @@ import { readSession } from "@/lib/auth/session";
 const STORE_RISK_LAMBDA_API_URL =
   process.env.STORE_RISK_LAMBDA_API_URL || "";
 
-function toNum(value: string | number | null | undefined): number | null {
+function toNum(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
-function toStr(value: string | number | null | undefined): string {
+function toStr(value: unknown): string {
   if (value === null || value === undefined) return "";
   return String(value).trim();
 }
 
-function toBool(value: boolean | string | null | undefined): boolean {
+function toBool(value: unknown): boolean {
   if (typeof value === "boolean") return value;
   if (value === null || value === undefined) return false;
   return String(value).toLowerCase() === "true" || String(value) === "1";

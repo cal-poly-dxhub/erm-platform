@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Risk } from "@/types";
+import HeatMap from "@/components/HeatMap";
 import {
   AlertTriangle,
   ArrowDownUp,
@@ -251,6 +253,29 @@ const LONG_TEXT_DETAIL_FIELDS = new Set<string>([
 
 const DATE_DETAIL_FIELDS = new Set<string>(["risk_creation_at", "actioned_at"]);
 
+const mapApiToRiskForMatrix = (risk: ApiRisk): Risk => ({
+  id: String(risk.id ?? risk.risk_id ?? ""),
+  riskIdNo: risk.risk_id ?? undefined,
+  collegeUnit: risk.unit ?? undefined,
+  department: risk.department ?? undefined,
+  owner: risk.owner ?? undefined,
+  risk: risk.risk_description ?? undefined,
+  riskAnalysis: risk.risk_analysis ?? undefined,
+  likelihood:
+    risk.baseline_likelihood != null
+      ? String(risk.baseline_likelihood)
+      : undefined,
+  impact:
+    risk.baseline_impact != null ? String(risk.baseline_impact) : undefined,
+  updatedLikelihood:
+    risk.updated_likelihood != null
+      ? String(risk.updated_likelihood)
+      : undefined,
+  updatedImpact:
+    risk.updated_impact != null ? String(risk.updated_impact) : undefined,
+  approvalStatus: risk.approval_status ?? undefined,
+});
+
 export default function DashboardPage() {
   const [risks, setRisks] = useState<ApiRisk[]>([]);
   const [loading, setLoading] = useState(true);
@@ -267,10 +292,19 @@ export default function DashboardPage() {
     owner: "",
     unit: "",
   });
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "unit" | "category" | "matrix"
+  >("overview");
 
   const approvedRisks = useMemo(
     () => risks.filter((r) => r.approval_status === "approved"),
     [risks],
+  );
+
+  const matrixRisks = useMemo(
+    () => approvedRisks.map(mapApiToRiskForMatrix),
+    [approvedRisks],
   );
 
   const fetchRisks = async (
@@ -564,90 +598,78 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200 text-gray-800">
-      <div className="container mx-auto px-4 py-8 md:px-8">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-semibold tracking-widest text-calpoly-gold">
-              ENTERPRISE RISK MANAGEMENT
-            </p>
-            <h1 className="text-4xl font-bold text-calpoly-green">
-              ERM Results Dashboard
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Live view of residual risk exposure, ownership, and mitigation
-              priorities.
-            </p>
-            {user && (
-              <p className="mt-2 text-xs text-gray-500">
-                Signed in as{" "}
-                {user.name || user.email || user.username || user.sub}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {user?.groups?.includes("admin") && (
-              <>
-                <Link
-                  href="/dashboard/admin/review"
-                  className="inline-flex items-center rounded-lg border border-calpoly-gold bg-calpoly-gold/10 px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-calpoly-gold/20"
-                >
-                  <ClipboardCheck className="mr-2 h-4 w-4" />
-                  Admin Review
-                </Link>
-                <Link
-                  href="/dashboard/admin/users"
-                  className="inline-flex items-center rounded-lg border border-calpoly-gold bg-calpoly-gold/10 px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-calpoly-gold/20"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  User Management
-                </Link>
-              </>
-            )}
-            <Link
-              href="/profile"
-              className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
-            >
-              <User className="mr-2 h-4 w-4" />
-              My Profile
-            </Link>
-            <Link
-              href="/api/auth/logout"
-              className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-            >
-              Sign Out
-            </Link>
-            <Link
-              href="/"
-              className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
-            >
-              <ShieldCheck className="mr-2 h-4 w-4" />
-              Back to Risk Tool
-            </Link>
-            <button
-              onClick={() => fetchRisks()}
-              className="inline-flex items-center rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-            >
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              Refresh Data
-            </button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-calpoly-gold">
+            Enterprise Risk Management
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-calpoly-green">
+            ERM Results Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Residual risk exposure, ownership, and mitigation priorities.
+          </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => fetchRisks()}
+            className="inline-flex items-center gap-2 rounded-lg bg-calpoly-green px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Refresh data
+          </button>
+        </div>
+      </div>
 
-        <section className="mt-8 rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      {/* Global unit/department filters */}
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-calpoly-green">
-                Filters
+              <h2 className="text-sm font-semibold text-calpoly-green">
+                Global Filters
               </h2>
-              <p className="text-sm text-gray-500">
-                Filters are exact match on department, category, status, owner,
-                and unit.
+              <p className="mt-0.5 text-xs text-gray-500">
+                Unit and department filters apply to all dashboard tabs.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <ArrowDownUp className="h-4 w-4" />
-              Limit
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={filters.unit}
+                onChange={(event) =>
+                  updateFilter("unit", event.target.value)
+                }
+                className="min-w-[10rem] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+              >
+                <option value="">All Units</option>
+                {filterOptions.unit.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.department}
+                onChange={(event) =>
+                  updateFilter("department", event.target.value)
+                }
+                className="min-w-[10rem] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+              >
+                <option value="">All Departments</option>
+                {filterOptions.department.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <div className="flex items-center gap-1">
+              <ArrowDownUp className="h-3.5 w-3.5" />
+              <span>Limit</span>
               <input
                 type="number"
                 min={10}
@@ -662,118 +684,154 @@ export default function DashboardPage() {
                   const clamped = Math.min(250, Math.max(10, next));
                   setLimit(clamped);
                 }}
-                className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+                className="w-16 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
               />
             </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-5">
-            <select
-              value={filters.department}
-              onChange={(event) =>
-                updateFilter("department", event.target.value)
-              }
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
-            >
-              <option value="">All Departments</option>
-              {filterOptions.department.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.category}
-              onChange={(event) => updateFilter("category", event.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
-            >
-              <option value="">All Categories</option>
-              {filterOptions.category.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.status}
-              onChange={(event) => updateFilter("status", event.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
-            >
-              <option value="">All Statuses</option>
-              {filterOptions.status.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.owner}
-              onChange={(event) => updateFilter("owner", event.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
-            >
-              <option value="">All Owners</option>
-              {filterOptions.owner.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.unit}
-              onChange={(event) => updateFilter("unit", event.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
-            >
-              <option value="">All Units</option>
-              {filterOptions.unit.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mt-4">
-            <label className="text-sm font-semibold text-gray-600">
-              Semantic Search
-            </label>
-            <input
-              value={semanticQuery}
-              onChange={(event) => setSemanticQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  handleApplyFilters();
-                }
-              }}
-              placeholder="Search by risk description or analysis..."
-              className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
-            />
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              onClick={handleApplyFilters}
-              className="rounded-lg bg-calpoly-gold px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-            >
-              Apply Filters
-            </button>
-            <button
-              onClick={handleClearFilters}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-            >
-              Clear
-            </button>
             <button
               type="button"
-              onClick={exportCsv}
-              className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              {filtersOpen ? "Hide filters" : "More filters"}
             </button>
           </div>
-        </section>
+        </div>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-4">
+        {filtersOpen && (
+          <div className="mt-4 space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <select
+                value={filters.category}
+                onChange={(event) =>
+                  updateFilter("category", event.target.value)
+                }
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+              >
+                <option value="">All Categories</option>
+                {filterOptions.category.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.status}
+                onChange={(event) =>
+                  updateFilter("status", event.target.value)
+                }
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+              >
+                <option value="">All Statuses</option>
+                {filterOptions.status.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.owner}
+                onChange={(event) =>
+                  updateFilter("owner", event.target.value)
+                }
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+              >
+                <option value="">All Owners</option>
+                {filterOptions.owner.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-gray-600">
+                Semantic Search
+              </label>
+              <input
+                value={semanticQuery}
+                onChange={(event) => setSemanticQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleApplyFilters();
+                  }
+                }}
+                placeholder="Search by risk description or analysis..."
+                className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={handleApplyFilters}
+                className="rounded-lg bg-calpoly-gold px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              >
+                Apply Filters
+              </button>
+              <button
+                onClick={handleClearFilters}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={exportCsv}
+                className="inline-flex items-center rounded-lg border border-calpoly-green bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex flex-wrap gap-4 text-sm">
+          {[
+            { id: "overview", label: "Overview" },
+            { id: "unit", label: "By Unit" },
+            { id: "category", label: "By Category" },
+            { id: "matrix", label: "Risk Matrix" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() =>
+                setActiveTab(
+                  tab.id as "overview" | "unit" | "category" | "matrix",
+                )
+              }
+              className={`border-b-2 px-1 pb-2 text-sm font-medium ${
+                activeTab === tab.id
+                  ? "border-calpoly-gold text-calpoly-green"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Shared status/error messaging */}
+      {!loading && error && (
+        <section className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Unable to load data from the dashboard API. {error}
+        </section>
+      )}
+      {authLoading && (
+        <section className="mt-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
+          Checking authentication...
+        </section>
+      )}
+
+      {/* Overview tab */}
+      {activeTab === "overview" && (
+        <>
+      <section className="grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-gray-500">Total Risks</p>
             <p className="mt-3 text-3xl font-bold text-calpoly-green">
@@ -1002,7 +1060,7 @@ export default function DashboardPage() {
                           onClick={() => setSelectedRiskKey(riskKey)}
                           className={`w-full rounded-lg border bg-white p-3 text-left shadow-sm transition hover:border-calpoly-gold hover:shadow ${
                             selectedRiskKey === riskKey
-                              ? "border-calpoly-gold ring-2 ring-calpoly-gold/40"
+                              ? "border-calpoly-gold ring-2 ring-calpoly-gold"
                               : "border-gray-200"
                           }`}
                         >
@@ -1093,7 +1151,81 @@ export default function DashboardPage() {
             </div>
           )}
         </section>
-      </div>
+      </>
+      )}
+
+      {/* By Unit tab */}
+      {activeTab === "unit" && (
+        <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-calpoly-green">
+            Risks by Unit
+          </h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Distribution of approved risks across units.
+          </p>
+          <div className="mt-4 space-y-3">
+            {analytics.unitCounts.map(([unit, count]) => (
+              <div
+                key={unit}
+                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+              >
+                <span className="text-sm text-gray-700">{unit}</span>
+                <span className="text-sm font-semibold text-calpoly-green">
+                  {count} risks
+                </span>
+              </div>
+            ))}
+            {!loading && analytics.unitCounts.length === 0 && (
+              <p className="text-sm text-gray-500">No unit data.</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* By Category tab */}
+      {activeTab === "category" && (
+        <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-calpoly-green">
+            Risks by Category
+          </h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Top categories for approved risks.
+          </p>
+          <div className="mt-4 space-y-3">
+            {analytics.categoryCounts.map(([category, count], index) => (
+              <div
+                key={`${category}-${index}`}
+                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
+              >
+                <span className="text-sm font-medium text-gray-700">
+                  {category}
+                </span>
+                <span className="text-sm font-semibold text-calpoly-green">
+                  {count}
+                </span>
+              </div>
+            ))}
+            {!loading && analytics.categoryCounts.length === 0 && (
+              <p className="text-sm text-gray-500">No category data.</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Risk Matrix tab */}
+      {activeTab === "matrix" && (
+        <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-calpoly-green">
+            Risk Matrix (Baseline)
+          </h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Heatmap of baseline likelihood and impact for approved risks.
+          </p>
+          <div className="mt-6">
+            <HeatMap risks={matrixRisks} onEdit={() => {}} />
+          </div>
+        </section>
+      )}
     </div>
   );
 }

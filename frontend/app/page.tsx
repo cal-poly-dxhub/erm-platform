@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Header from "@/components/Header";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { LayoutGrid, RefreshCw, PlusCircle } from "lucide-react";
 import RiskList from "@/components/RiskList";
 import RiskModal from "@/components/RiskModal";
-import HeatMap from "@/components/HeatMap";
-import Analytics from "@/components/Analytics";
 import GapAnalysis from "@/components/GapAnalysis";
 import type { GapRiskPrefill } from "@/components/GapAnalysis";
 import { Risk } from "@/types";
@@ -131,41 +129,19 @@ const mapApiRiskToRisk = (api: ApiRisk): Risk => {
 
 export default function Home() {
   const [risks, setRisks] = useState<Risk[]>([]);
-  const [currentView, setCurrentView] = useState<
-    "list" | "map" | "analytics" | "gap"
-  >("list");
+  const [currentView, setCurrentView] = useState<"register" | "gap">(
+    "register",
+  );
+  const [registerMode, setRegisterMode] = useState<"cards" | "table">("cards");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [deleteRiskId, setDeleteRiskId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
-
-  const updateViewButtons = (
-    activeView: "list" | "map" | "analytics" | "gap",
-  ) => {
-    const views: Array<"list" | "map" | "analytics" | "gap"> = [
-      "list",
-      "map",
-      "analytics",
-      "gap",
-    ];
-    const buttonIds: Record<"list" | "map" | "analytics" | "gap", string> = {
-      list: "btn-list-view",
-      map: "btn-map-view",
-      analytics: "btn-analytics-view",
-      gap: "btn-gap-view",
-    };
-
-    views.forEach((view) => {
-      const btn = document.getElementById(buttonIds[view]);
-      if (btn) {
-        const isActive = view === activeView;
-        btn.classList.toggle("bg-white", isActive);
-        btn.classList.toggle("shadow", isActive);
-        btn.classList.toggle("text-gray-600", !isActive);
-      }
-    });
-  };
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [unitFilter, setUnitFilter] = useState("");
+  const openedFromQueryRef = useRef(false);
 
   const fetchRisks = async () => {
     setLoading(true);
@@ -209,19 +185,31 @@ export default function Home() {
 
   useEffect(() => {
     fetchRisks();
+  }, []);
 
-    const handleViewChange = (event: Event) => {
-      const e = event as CustomEvent<"list" | "map" | "analytics" | "gap">;
-      setCurrentView(e.detail);
-      setTimeout(() => updateViewButtons(e.detail), 0);
+  // Sync view with URL hash (#register | #gap | #submit) and open modal if needed
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const applyFromHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash === "gap") {
+        setCurrentView("gap");
+      } else {
+        setCurrentView("register");
+      }
+
+      if (openedFromQueryRef.current) return;
+      if (hash === "submit") {
+        setEditingRisk({ id: "new" } as Risk);
+        setIsModalOpen(true);
+        openedFromQueryRef.current = true;
+      }
     };
 
-    window.addEventListener("viewChange", handleViewChange as EventListener);
-    setTimeout(() => updateViewButtons("list"), 0);
-
-    return () => {
-      window.removeEventListener("viewChange", handleViewChange as EventListener);
-    };
+    applyFromHash();
+    window.addEventListener("hashchange", applyFromHash);
+    return () => window.removeEventListener("hashchange", applyFromHash);
   }, []);
 
   const handleSaveRisk = (_riskData: Risk) => {
@@ -297,47 +285,258 @@ export default function Home() {
     setEditingRisk(null);
   };
 
+  const uniqueStatuses = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          risks
+            .map((r) => r.status)
+            .filter((s): s is string => Boolean(s && s.trim())),
+        ),
+      ).sort(),
+    [risks],
+  );
+
+  const uniqueUnits = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          risks
+            .map((r) => r.collegeUnit)
+            .filter((u): u is string => Boolean(u && u.trim())),
+        ),
+      ).sort(),
+    [risks],
+  );
+
+  const filteredRisks = useMemo(() => {
+    return risks.filter((risk) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (q) {
+        const haystack = [
+          risk.riskIdNo,
+          risk.risk,
+          risk.riskAnalysis,
+          risk.owner,
+          risk.department,
+          risk.collegeUnit,
+          risk.riskCategory,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (statusFilter && (risk.status || "").trim() !== statusFilter) {
+        return false;
+      }
+      if (unitFilter && (risk.collegeUnit || "").trim() !== unitFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [risks, searchQuery, statusFilter, unitFilter]);
+
+  const handleModeChange = (mode: "cards" | "table") => {
+    setRegisterMode(mode);
+  };
+
+  const handleRefresh = () => {
+    void fetchRisks();
+  };
+
   return (
-    <div className="bg-gray-100 text-gray-800">
-      <div className="container mx-auto p-4 md:p-8">
-        <Header onAddNew={handleAddNew} onRefresh={() => void fetchRisks()} isRefreshing={loading} />
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-calpoly-green">
+            Risk Register
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            View, filter, and manage enterprise risks.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {currentView === "register" && (
+            <div className="inline-flex rounded-lg bg-gray-100 p-1">
+              {[
+                { id: "cards", label: "Cards" },
+                { id: "table", label: "Table" },
+              ].map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handleModeChange(id as "cards" | "table")}
+                  className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    registerMode === id
+                      ? "bg-white text-calpoly-green shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
+      </div>
 
-        {message && (
-          <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {message}
+      {message && (
+        <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {message}
+        </div>
+      )}
+      {loading && (
+        <div className="rounded-lg bg-white px-4 py-3 text-sm text-gray-600">
+          Loading risks...
+        </div>
+      )}
+
+      {currentView === "register" && (
+        <>
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by ID, description, owner, department..."
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2 md:ml-4">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+                >
+                  <option value="">All Statuses</option>
+                  {uniqueStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={unitFilter}
+                  onChange={(e) => setUnitFilter(e.target.value)}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+                >
+                  <option value="">All Units</option>
+                  {uniqueUnits.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </section>
-        )}
-        {loading && (
-          <section className="mb-6 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
-            Loading risks...
-          </section>
-        )}
 
-        {currentView === "list" && (
-          <RiskList
-            risks={risks}
-            onEdit={handleEditRisk}
-            onDelete={handleDeleteRisk}
-          />
-        )}
+          {registerMode === "cards" ? (
+            <RiskList
+              risks={filteredRisks}
+              onEdit={handleEditRisk}
+              onDelete={handleDeleteRisk}
+            />
+          ) : (
+            <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-sm text-gray-700">
+                  <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2">ID</th>
+                      <th className="px-3 py-2">Unit</th>
+                      <th className="px-3 py-2">Owner</th>
+                      <th className="px-3 py-2">Risk</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Approval</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredRisks.map((risk) => (
+                      <tr key={risk.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-xs text-gray-500">
+                          {risk.riskIdNo || "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          {risk.collegeUnit || "—"}
+                        </td>
+                        <td className="px-3 py-2">{risk.owner || "—"}</td>
+                        <td className="px-3 py-2 max-w-xs truncate">
+                          {risk.risk || "Untitled Risk"}
+                        </td>
+                        <td className="px-3 py-2">{risk.status || "Not Set"}</td>
+                        <td className="px-3 py-2">
+                          {(risk.approvalStatus || "pending")
+                            .charAt(0)
+                            .toUpperCase() +
+                            (risk.approvalStatus || "pending").slice(1)}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs">
+                          <button
+                            type="button"
+                            onClick={() => handleEditRisk(risk.id)}
+                            className="rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-calpoly-green hover:bg-gray-50"
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredRisks.length === 0 && !loading && (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-3 py-4 text-center text-sm text-gray-500"
+                        >
+                          No risks match your filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+        </>
+      )}
 
-        {currentView === "map" && (
-          <HeatMap risks={risks} onEdit={handleEditRisk} />
-        )}
+      {currentView === "gap" && (
+        <GapAnalysis onOpenAddRisk={handleOpenAddRiskFromGap} />
+      )}
 
-        {currentView === "analytics" && <Analytics risks={risks} />}
-        {currentView === "gap" && (
-          <GapAnalysis onOpenAddRisk={handleOpenAddRiskFromGap} />
-        )}
+      <RiskModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        risk={editingRisk}
+        onSave={handleSaveRisk}
+      />
 
-        <RiskModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          risk={editingRisk}
-          onSave={handleSaveRisk}
-        />
+      <button
+        type="button"
+        onClick={handleAddNew}
+        className="fixed bottom-8 right-8 z-30 flex items-center gap-2 rounded-full bg-calpoly-gold px-5 py-3 text-sm font-semibold text-calpoly-green shadow-lg transition hover:opacity-95"
+        aria-label="Add new risk"
+      >
+        <PlusCircle className="h-5 w-5" />
+        Add New Risk
+      </button>
 
-        {deleteRiskId && (
+      {deleteRiskId && (
           <>
             <div
               className="fixed inset-0 z-40 bg-black/40"
@@ -368,8 +567,7 @@ export default function Home() {
               </div>
             </div>
           </>
-        )}
-      </div>
+      )}
     </div>
   );
 }

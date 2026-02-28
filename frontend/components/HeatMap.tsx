@@ -13,19 +13,33 @@ interface HeatMapProps {
   onEdit: (id: string) => void;
 }
 
+type CellKey = `${number}-${number}`;
+
+interface CellData {
+  count: number;
+  risks: Risk[];
+}
+
+type HeatMapData = Record<CellKey, CellData>;
+
 const HeatMap: React.FC<HeatMapProps> = ({ risks, onEdit }) => {
-  const [selectedCell, setSelectedCell] = useState(null);
+  const [selectedCell, setSelectedCell] = useState<{
+    likelihood: number;
+    impact: number;
+    data: CellData;
+  } | null>(null);
 
   const heatMapData = useMemo(() => {
-    const data = {};
+    const data = {} as HeatMapData;
     for (let i = 1; i <= 5; i++) {
       for (let l = 1; l <= 5; l++) {
-        data[`${i}-${l}`] = { count: 0, risks: [] };
+        const key = `${i}-${l}` as CellKey;
+        data[key] = { count: 0, risks: [] };
       }
     }
     risks.forEach((risk) => {
       if (risk.likelihood && risk.impact) {
-        const key = `${risk.impact}-${risk.likelihood}`;
+        const key = `${risk.impact}-${risk.likelihood}` as CellKey;
         if (data[key]) {
           data[key].count++;
           data[key].risks.push(risk);
@@ -35,8 +49,8 @@ const HeatMap: React.FC<HeatMapProps> = ({ risks, onEdit }) => {
     return data;
   }, [risks]);
 
-  const handleCellClick = (likelihood, impact) => {
-    const key = `${impact}-${likelihood}`;
+  const handleCellClick = (likelihood: number, impact: number) => {
+    const key = `${impact}-${likelihood}` as CellKey;
     setSelectedCell({ likelihood, impact, data: heatMapData[key] });
   };
 
@@ -68,9 +82,9 @@ const HeatMap: React.FC<HeatMapProps> = ({ risks, onEdit }) => {
           <div className="grid grid-cols-5 gap-2 flex-1">
             {[5, 4, 3, 2, 1].map((l) =>
               [1, 2, 3, 4, 5].map((i) => {
-                const key = `${i}-${l}`;
+                const key = `${i}-${l}` as CellKey;
                 const data = heatMapData[key];
-                const rating = qualitativeMatrix[l][i];
+                const rating = (qualitativeMatrix as any)[l][i] as keyof typeof ratingColors;
                 const colorClass =
                   data.count > 0
                     ? ratingColors[rating]

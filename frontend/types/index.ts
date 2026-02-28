@@ -20,11 +20,25 @@ export interface Risk {
   updatedLikelihood?: string;
   updatedImpact?: string;
   status?: string;
+  /** Whether the risk applies college-wide (vs a specific department/unit). */
+  isCollegeWide?: boolean;
+  /** Free-text tolerance / follow-up status. */
+  statusTolerance?: string;
   statusPoc?: string;
   riskCategory?: string;
+  /** Department's stated risk tolerance (used in gap analysis and review). */
+  departmentRiskTolerance?: string;
+  /** Resource estimates captured on the form. */
+  resourceInternalFTE?: string;
+  resourceExternal?: string;
+  resourceFunding?: string;
   resourcesNeeded?: string;
   leadershipComments?: string;
   ermComments?: string;
+  ehsComments?: string;
+  /** Privacy flags for sensitive risks. */
+  isPrivate?: boolean;
+  isAttorneyClientPrivilege?: boolean;
   /** Approval state: "pending" | "approved" | "rejected". Only "approved" appears in dashboard analytics. */
   approvalStatus?: "pending" | "approved" | "rejected";
   /** Set when an admin rejects the risk; visible only to admins. */

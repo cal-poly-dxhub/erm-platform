@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { HelpCircle, Sparkles, CheckCircle2 } from "lucide-react";
+import { HelpCircle, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 
 /** Prefill for opening the risk form from gap analysis (unit/college, department, optional risk text). */
 export type GapRiskPrefill = {
