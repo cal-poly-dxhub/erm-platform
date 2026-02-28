@@ -28,6 +28,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingAdminCount, setPendingAdminCount] = useState<number | null>(
+    null,
+  );
   const isLogin = pathname === "/login";
 
   useEffect(() => {
@@ -47,6 +50,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }
 
   const isAdmin = user?.groups?.includes("admin") ?? false;
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setPendingAdminCount(null);
+      return;
+    }
+    fetch("/api/admin/pending-risks", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setPendingAdminCount(data.length);
+        } else {
+          setPendingAdminCount(null);
+        }
+      })
+      .catch(() => setPendingAdminCount(null));
+  }, [isAdmin]);
 
   const navLink =
     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/90 transition hover:bg-white/10 hover:text-white";
@@ -137,7 +157,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   }
                 >
                   <ClipboardCheck className="h-5 w-5 shrink-0" />
-                  Admin Review
+                  <span>Admin Review</span>
+                  {pendingAdminCount && pendingAdminCount > 0 && (
+                    <span className="ml-auto inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-calpoly-gold px-1.5 py-0.5 text-xs font-semibold text-calpoly-green">
+                      {pendingAdminCount}
+                    </span>
+                  )}
                 </Link>
                 <Link
                   href="/dashboard/admin/users"
