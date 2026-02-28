@@ -469,13 +469,18 @@ const RiskModal: React.FC<RiskModalProps> = ({
       >
         <form onSubmit={handleSubmit} className="p-6">
           <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-            <h3 className="text-2xl font-semibold text-calpoly-green">
-              {readOnly
-                ? "View Risk"
-                : !risk || risk.id === "new" || String(risk.id).trim() === ""
-                  ? "Add New Risk"
-                  : `Edit Risk: ${risk.riskIdNo || "Untitled"}`}
-            </h3>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-calpoly-gold">
+                Enterprise Risk Management
+              </p>
+              <h3 className="mt-1 text-2xl font-semibold text-calpoly-green">
+                {readOnly
+                  ? "View Risk"
+                  : !risk || risk.id === "new" || String(risk.id).trim() === ""
+                    ? "Add New Risk"
+                    : `Edit Risk: ${risk.riskIdNo || "Untitled"}`}
+              </h3>
+            </div>
             <button
               type="button"
               onClick={onClose}
@@ -776,7 +781,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   disabled={isGenerating}
                   className="flex items-center bg-calpoly-green hover:opacity-90 text-white text-sm font-bold py-2 px-3 rounded-lg transition duration-300 disabled:opacity-50"
                 >
-                  <span>{isGenerating ? "Generating..." : "✨ Suggest Mitigation Steps"}</span>
+                  <span>{isGenerating ? "Generating..." : "Suggest Mitigation Steps"}</span>
                 </button>
               </div>
               
