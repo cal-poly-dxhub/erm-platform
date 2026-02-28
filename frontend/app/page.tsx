@@ -369,10 +369,12 @@ export default function Home() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-calpoly-green">
-            Risk Register
+            {currentView === "gap" ? "Gap Analysis" : "Risk Register"}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            View, filter, and manage enterprise risks.
+            {currentView === "gap"
+              ? "Identify risk blind spots by college or unit."
+              : "View, filter, and manage enterprise risks."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

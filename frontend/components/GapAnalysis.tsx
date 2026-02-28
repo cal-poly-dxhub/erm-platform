@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { HelpCircle, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { HelpCircle, Search, CheckCircle2, AlertCircle, Play } from "lucide-react";
 
 /** Prefill for opening the risk form from gap analysis (unit/college, department, optional risk text). */
 export type GapRiskPrefill = {
@@ -118,56 +118,49 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ onOpenAddRisk }) => {
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm">
-      
-      {/* Header & Help Toggle */}
-      <div className="flex justify-between items-start mb-2">
-        <h2 className="text-2xl font-bold text-calpoly-green flex items-center">
-          <Sparkles className="w-6 h-6 mr-2 text-calpoly-gold" />
-          AI Gap Analysis
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      {/* Section header and help */}
+      <div className="flex justify-between items-start mb-4">
+        <h2 className="text-lg font-semibold text-calpoly-green flex items-center">
+          <Search className="w-5 h-5 mr-2 text-calpoly-gold" />
+          Identify Risks
         </h2>
-        <button 
+        <button
+          type="button"
           onClick={() => setShowHelp(!showHelp)}
-          className="text-gray-400 hover:text-calpoly-green transition-colors flex items-center text-sm font-medium"
+          className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
         >
           <HelpCircle className="w-4 h-4 mr-1" />
-          {showHelp ? "Hide Info" : "What is this?"}
+          {showHelp ? "Hide info" : "What is this?"}
         </button>
       </div>
 
-      {/* Contextual Help Box */}
       {showHelp && (
-        <div className="mb-6 p-4 bg-calpoly-green/5 border-l-4 border-calpoly-green rounded-r-lg text-sm text-gray-700">
-          <p className="font-bold text-gray-900 mb-2">How Gap Analysis Works</p>
+        <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+          <p className="font-semibold text-gray-900 mb-2">How Gap Analysis works</p>
           <p className="mb-3">
-            The Gap Analysis tool uses AI to compare your specific Department/Unit against industry standards and historical risk data. It identifies potential "blind spots"—risks you might not have thought to log yet.
+            This tool compares your department or unit against standards and historical risk data to surface potential blind spots—risks you may not have logged yet.
           </p>
           <ul className="space-y-2">
-            <li className="flex items-start">
-              <CheckCircle2 className="w-4 h-4 text-calpoly-gold mr-2 mt-0.5 shrink-0" />
-              <span><strong>Step 1:</strong> Select your specific academic college or administrative unit.</span>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-calpoly-green shrink-0 mt-0.5" />
+              <span><strong>Step 1:</strong> Select an academic college or administrative unit.</span>
             </li>
-            <li className="flex items-start">
-              <CheckCircle2 className="w-4 h-4 text-calpoly-gold mr-2 mt-0.5 shrink-0" />
-              <span><strong>Step 2:</strong> Click "Run Gap Analysis". The AI will generate a list of likely risks tailored to your selection.</span>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-calpoly-green shrink-0 mt-0.5" />
+              <span><strong>Step 2:</strong> Click &quot;Run Gap Analysis&quot; to generate suggested risks for your selection.</span>
             </li>
-            <li className="flex items-start">
-              <CheckCircle2 className="w-4 h-4 text-calpoly-gold mr-2 mt-0.5 shrink-0" />
-              <span><strong>Step 3:</strong> Review the suggestions. If a suggested risk applies to your team, click <strong>"Add as risk"</strong> to instantly pre-fill a new risk form.</span>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-calpoly-green shrink-0 mt-0.5" />
+              <span><strong>Step 3:</strong> Review results and use &quot;Add to Register&quot; to pre-fill a new risk form when a suggestion applies.</span>
             </li>
           </ul>
         </div>
       )}
 
-      {!showHelp && (
-        <p className="mb-6 text-sm text-gray-500">
-          Discover potential risk blind spots tailored to your specific department or unit.
-        </p>
-      )}
-
-      <div className="space-y-5 bg-gray-50 p-5 rounded-xl border border-gray-200">
+      <div className="space-y-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
         <div className="flex flex-wrap gap-4 items-center">
-          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">Scope:</span>
+          <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Scope</span>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
@@ -246,39 +239,38 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ onOpenAddRisk }) => {
             type="button"
             onClick={runGapAnalysis}
             disabled={loading}
-            className="w-full md:w-auto flex items-center justify-center rounded-lg bg-calpoly-gold px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-yellow-600 disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-lg bg-calpoly-gold px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
           >
             {loading ? (
-              <span className="flex items-center">
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                Analyzing Data...
-              </span>
+              <>
+                <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                Analyzing…
+              </>
             ) : (
-              <span className="flex items-center">
-                <Sparkles className="w-4 h-4 mr-2" />
+              <>
+                <Play className="w-4 h-4 mr-2" />
                 Run Gap Analysis
-              </span>
+              </>
             )}
           </button>
         </div>
       </div>
 
       {message && (
-        <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 flex items-center">
-          <AlertCircle className="w-5 h-5 mr-2 shrink-0" />
+        <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 shrink-0" />
           {message}
         </div>
       )}
 
-      {/* Results Section */}
       {risks.length > 0 && (
-        <div className="mt-8 border-t border-gray-200 pt-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Suggested Risk Areas</h3>
-          <div className="grid gap-4">
+        <div className="mt-6 border-t border-gray-200 pt-6">
+          <h3 className="text-lg font-semibold text-calpoly-green mb-4">Suggested risk areas</h3>
+          <div className="grid gap-3">
             {risks.map((item, index) => (
               <div
                 key={`${item.risk || "risk"}-${index}`}
-                className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-calpoly-gold hover:shadow-md sm:flex-row sm:items-start sm:justify-between"
+                className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-start sm:justify-between"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-bold text-gray-900">
