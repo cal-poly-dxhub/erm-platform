@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowDownUp,
   ClipboardCheck,
+  Download,
   RefreshCcw,
   ShieldCheck,
   User,
@@ -336,6 +337,46 @@ export default function DashboardPage() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const exportCsv = async () => {
+    const payloadFilters = Object.fromEntries(
+      Object.entries(filters).filter(([, value]) => value.trim()),
+    );
+    const exportFilters = { ...payloadFilters, approval_status: "approved" };
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          export_format: "csv",
+          filters: exportFilters,
+          limit: 1000,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.error || `Export failed: ${response.status}`);
+      }
+      const raw = await response.text();
+      let csvText = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.body === "string") csvText = parsed.body;
+      } catch {
+        // use raw as CSV
+      }
+      const blob = new Blob([csvText], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "erm-risks.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed.");
     }
   };
 
@@ -720,6 +761,14 @@ export default function DashboardPage() {
               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
             >
               Clear
+            </button>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="inline-flex items-center rounded-lg border border-calpoly-green/30 bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
             </button>
           </div>
         </section>
