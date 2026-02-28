@@ -472,9 +472,9 @@ const RiskModal: React.FC<RiskModalProps> = ({
             <h3 className="text-2xl font-semibold text-calpoly-green">
               {readOnly
                 ? "View Risk"
-                : risk
-                  ? `Edit Risk: ${risk.riskIdNo || "Untitled"}`
-                  : "Add New Risk"}
+                : !risk || risk.id === "new" || String(risk.id).trim() === ""
+                  ? "Add New Risk"
+                  : `Edit Risk: ${risk.riskIdNo || "Untitled"}`}
             </h3>
             <button
               type="button"

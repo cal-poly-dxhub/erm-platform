@@ -129,6 +129,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </Link>
             <Link
               href="/#gap"
+              onClick={(e) => {
+                if (pathname === "/" && typeof window !== "undefined") {
+                  e.preventDefault();
+                  window.location.hash = "#gap";
+                  window.dispatchEvent(new Event("openGapAnalysis"));
+                }
+              }}
               className={navLink}
             >
               <GitBranch className="h-5 w-5 shrink-0" />

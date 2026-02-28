@@ -222,6 +222,15 @@ export default function Home() {
       window.removeEventListener("openSubmitRisk", handler as EventListener);
   }, []);
 
+  // Switch to Gap Analysis when sidebar link is clicked (same-page)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => setCurrentView("gap");
+    window.addEventListener("openGapAnalysis", handler as EventListener);
+    return () =>
+      window.removeEventListener("openGapAnalysis", handler as EventListener);
+  }, []);
+
   const handleSaveRisk = (_riskData: Risk) => {
     setEditingRisk(null);
     void fetchRisks();
