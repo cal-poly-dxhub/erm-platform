@@ -9,7 +9,7 @@ import {
   ArrowDownUp,
   ClipboardCheck,
   Download,
-  RefreshCcw,
+  RefreshCw,
   ShieldCheck,
   User,
   Users,
@@ -561,6 +561,33 @@ export default function DashboardPage() {
     return approvedRisks.find((risk) => getRiskKey(risk) === selectedRiskKey);
   }, [approvedRisks, selectedRiskKey]);
 
+  const DASHBOARD_TABS: {
+    id: "overview" | "unit" | "category" | "matrix";
+    label: string;
+    description: string;
+  }[] = [
+    {
+      id: "overview",
+      label: "Overview",
+      description: "High-level metrics, workflow board, and detailed record view.",
+    },
+    {
+      id: "unit",
+      label: "By Unit",
+      description: "Counts of approved risks grouped by unit.",
+    },
+    {
+      id: "category",
+      label: "By Category",
+      description: "Counts of approved risks grouped by risk category.",
+    },
+    {
+      id: "matrix",
+      label: "Risk Matrix",
+      description: "Baseline likelihood and impact heatmap for approved risks.",
+    },
+  ];
+
   useEffect(() => {
     if (approvedRisks.length === 0) {
       setSelectedRiskKey(null);
@@ -599,7 +626,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-calpoly-gold">
             Enterprise Risk Management
@@ -615,10 +642,11 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => fetchRisks()}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCcw className="h-4 w-4" />
-            Refresh data
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
           </button>
         </div>
       </div>
@@ -790,12 +818,7 @@ export default function DashboardPage() {
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex flex-wrap gap-4 text-sm">
-          {[
-            { id: "overview", label: "Overview" },
-            { id: "unit", label: "By Unit" },
-            { id: "category", label: "By Category" },
-            { id: "matrix", label: "Risk Matrix" },
-          ].map((tab) => (
+          {DASHBOARD_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -815,6 +838,16 @@ export default function DashboardPage() {
           ))}
         </nav>
       </div>
+
+      {/* Active tab helper text */}
+      {(() => {
+        const current = DASHBOARD_TABS.find((tab) => tab.id === activeTab);
+        return current ? (
+          <p className="mt-2 text-xs text-gray-500">
+            {current.description}
+          </p>
+        ) : null;
+      })()}
 
       {/* Shared status/error messaging */}
       {!loading && error && (
@@ -872,17 +905,6 @@ export default function DashboardPage() {
             </p>
           </div>
         </section>
-
-        {!loading && error && (
-          <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            Unable to load data from the dashboard API. {error}
-          </section>
-        )}
-        {authLoading && (
-          <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
-            Checking authentication...
-          </section>
-        )}
 
         <section className="mt-8 grid gap-6 lg:grid-cols-3">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

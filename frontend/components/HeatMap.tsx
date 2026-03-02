@@ -68,9 +68,7 @@ const HeatMap: React.FC<HeatMapProps> = ({ risks, onEdit }) => {
   return (
     <section className="mb-8">
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          Risk Heat Map (Baseline)
-        </h2>
+        
         <div className="flex">
           <div className="flex flex-col-reverse justify-between text-right pr-4 text-sm font-medium text-gray-500">
             <div className="h-20 flex items-center">Very Unlikely</div>
