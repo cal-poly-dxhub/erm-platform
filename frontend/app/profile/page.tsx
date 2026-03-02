@@ -13,6 +13,7 @@ import {
   Shield,
   XCircle,
   RefreshCw,
+  Bell,
 } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
 import { Risk } from "@/types";
@@ -53,6 +54,13 @@ type AuthUser = {
   name?: string;
   username?: string;
   groups: string[];
+};
+
+type NotificationPreferences = {
+  notifyNewRiskSubmitted: boolean;
+  remindPendingApproval: boolean;
+  weeklyDigestNoProgress: boolean;
+  notifyRiskDecision: boolean;
 };
 
 const API_URL = "/api/erm-dashboard-results";
@@ -271,6 +279,7 @@ function EmptySection({
 }
 
 type TabId = "entered" | "approved" | "rejected";
+type ProfileSection = "activity" | "settings";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -281,6 +290,16 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [viewRisk, setViewRisk] = useState<Risk | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("entered");
+  const [profileSection, setProfileSection] =
+    useState<ProfileSection>("activity");
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
+    notifyNewRiskSubmitted: false,
+    remindPendingApproval: false,
+    weeklyDigestNoProgress: false,
+    notifyRiskDecision: false,
+  });
+  const [savingPrefs, setSavingPrefs] = useState(false);
+  const [prefsMessage, setPrefsMessage] = useState<string | null>(null);
 
   const myEnteredPending = useMemo(
     () =>
@@ -327,6 +346,71 @@ export default function ProfilePage() {
     if (!user?.groups?.includes("admin")) return [];
     return rejectedRisksAdmin.filter((r) => isActionedByUser(r, user));
   }, [user, rejectedRisksAdmin]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    const loadNotificationPrefs = async () => {
+      try {
+        const res = await fetch("/api/profile/notification-preferences", {
+          method: "GET",
+          credentials: "include",
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json().catch(() => null);
+        if (!data || cancelled) return;
+        setNotificationPrefs((prev) => ({
+          notifyNewRiskSubmitted:
+            "notifyNewRiskSubmitted" in data
+              ? Boolean(data.notifyNewRiskSubmitted)
+              : prev.notifyNewRiskSubmitted,
+          remindPendingApproval:
+            "remindPendingApproval" in data
+              ? Boolean(data.remindPendingApproval)
+              : prev.remindPendingApproval,
+          weeklyDigestNoProgress:
+            "weeklyDigestNoProgress" in data
+              ? Boolean(data.weeklyDigestNoProgress)
+              : prev.weeklyDigestNoProgress,
+          notifyRiskDecision:
+            "notifyRiskDecision" in data
+              ? Boolean(data.notifyRiskDecision)
+              : prev.notifyRiskDecision,
+        }));
+      } catch {
+        // Swallow errors; this section is best-effort until API is implemented.
+      }
+    };
+
+    void loadNotificationPrefs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const handleSaveNotificationPrefs = useCallback(async () => {
+    setSavingPrefs(true);
+    setPrefsMessage(null);
+    try {
+      const res = await fetch("/api/profile/notification-preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(notificationPrefs),
+      });
+      if (!res.ok) {
+        setPrefsMessage("Could not save preferences. Please try again.");
+        return;
+      }
+      setPrefsMessage("Notification preferences saved.");
+    } catch {
+      setPrefsMessage("Could not save preferences. Please try again.");
+    } finally {
+      setSavingPrefs(false);
+    }
+  }, [notificationPrefs]);
 
   const refetchRisks = useCallback(async () => {
     if (!user) return;
@@ -547,79 +631,343 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      {/* Tabs: same pattern as Risk Register (rounded pill container) */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <nav className="inline-flex rounded-lg bg-gray-100 p-1" aria-label="Tabs">
-          {tabs.map((tab) => (
+      {/* Profile-level tabs: Activity vs Settings (same pattern as Dashboard tabs) */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex flex-wrap gap-4 text-sm" aria-label="Profile tabs">
+          {[
+            { id: "activity", label: "Activity" },
+            { id: "settings", label: "Settings" },
+          ].map((tab) => (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                activeTab === tab.id
-                  ? "bg-white text-calpoly-green shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+              onClick={() => setProfileSection(tab.id as ProfileSection)}
+              className={`border-b-2 px-1 pb-2 text-sm font-medium ${
+                profileSection === tab.id
+                  ? "border-calpoly-gold text-calpoly-green"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               {tab.label}
-              {tab.count != null && tab.count > 0 && (
-                <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
-                  {tab.count}
-                </span>
-              )}
             </button>
           ))}
         </nav>
+      </div>
 
-        <div className="mt-6">
-          {activeTab === "entered" && (
-            <div className="space-y-8">
-              <section className="rounded-lg border border-gray-200 border-l-4 border-l-calpoly-gold bg-gray-50/50 p-5">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
-                  <Clock className="h-4 w-4 text-calpoly-gold" />
-                  Pending approval
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Waiting for admin review.
-                </p>
-                {loading ? (
-                  <p className="mt-4 text-sm text-gray-500">Loading...</p>
-                ) : myEnteredPending.length === 0 ? (
-                  <div className="mt-4 rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
-                    No pending risks.
+      {/* Settings: Notification preferences and other user config */}
+      {profileSection === "settings" && (
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
+                <Bell className="h-4 w-4 text-calpoly-gold" />
+                Notification Preferences
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {isAdmin
+                  ? "Control notifications about new and pending risks."
+                  : "Control notifications about decisions on your submitted risks."}
+              </p>
+            </div>
+            {prefsMessage && (
+              <p className="text-xs font-medium text-calpoly-green">
+                {prefsMessage}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 space-y-4">
+            {isAdmin ? (
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      Notify me when a new risk is submitted
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Receive a notification whenever someone submits a new risk for review.
+                    </p>
                   </div>
-                ) : (
-                  <ul className="mt-4 space-y-3">
-                    {myEnteredPending.map((risk) => (
-                      <RiskRow
-                        key={String(risk.id ?? risk.risk_id ?? Math.random())}
-                        risk={risk}
-                        onView={() => setViewRisk(mapApiRiskToRisk(risk))}
-                        dateLabel="Entered"
-                        dateValue={formatDate(risk.risk_creation_at) || undefined}
-                      />
-                    ))}
-                  </ul>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNotificationPrefs((prev) => ({
+                        ...prev,
+                        notifyNewRiskSubmitted: !prev.notifyNewRiskSubmitted,
+                      }))
+                    }
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                      notificationPrefs.notifyNewRiskSubmitted
+                        ? "bg-calpoly-green"
+                        : "bg-gray-300"
+                    }`}
+                    role="switch"
+                    aria-checked={notificationPrefs.notifyNewRiskSubmitted}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                        notificationPrefs.notifyNewRiskSubmitted
+                          ? "translate-x-6"
+                          : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      Remind me of risks pending approval for 3+ days
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Get reminders when risks assigned to you have been waiting for approval.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNotificationPrefs((prev) => ({
+                        ...prev,
+                        remindPendingApproval: !prev.remindPendingApproval,
+                      }))
+                    }
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                      notificationPrefs.remindPendingApproval
+                        ? "bg-calpoly-green"
+                        : "bg-gray-300"
+                    }`}
+                    role="switch"
+                    aria-checked={notificationPrefs.remindPendingApproval}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                        notificationPrefs.remindPendingApproval
+                          ? "translate-x-6"
+                          : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      Weekly digest of risks with no progress
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Receive a weekly summary of risks that have not moved forward recently.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNotificationPrefs((prev) => ({
+                        ...prev,
+                        weeklyDigestNoProgress: !prev.weeklyDigestNoProgress,
+                      }))
+                    }
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                      notificationPrefs.weeklyDigestNoProgress
+                        ? "bg-calpoly-green"
+                        : "bg-gray-300"
+                    }`}
+                    role="switch"
+                    aria-checked={notificationPrefs.weeklyDigestNoProgress}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                        notificationPrefs.weeklyDigestNoProgress
+                          ? "translate-x-6"
+                          : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    Notify me when my submitted risk is approved or rejected
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Receive a notification when an admin approves or rejects your risk.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setNotificationPrefs((prev) => ({
+                      ...prev,
+                      notifyRiskDecision: !prev.notifyRiskDecision,
+                    }))
+                  }
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                    notificationPrefs.notifyRiskDecision
+                      ? "bg-calpoly-green"
+                      : "bg-gray-300"
+                  }`}
+                  role="switch"
+                  aria-checked={notificationPrefs.notifyRiskDecision}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                      notificationPrefs.notifyRiskDecision
+                        ? "translate-x-6"
+                        : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-5 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void handleSaveNotificationPrefs()}
+              disabled={savingPrefs}
+              className="inline-flex items-center gap-2 rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-60"
+            >
+              {savingPrefs ? "Saving…" : "Save Preferences"}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Activity: risks I entered / approved / rejected */}
+      {profileSection === "activity" && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <nav className="inline-flex rounded-lg bg-gray-100 p-1" aria-label="Tabs">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                  activeTab === tab.id
+                    ? "bg-white text-calpoly-green shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                {tab.label}
+                {tab.count != null && tab.count > 0 && (
+                  <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                    {tab.count}
+                  </span>
                 )}
-              </section>
+              </button>
+            ))}
+          </nav>
 
-              <section className="rounded-lg border border-gray-200 border-l-4 border-l-calpoly-green bg-gray-50/50 p-5">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
-                  <CheckCircle className="h-4 w-4 text-calpoly-green" />
-                  Approved
-                </h2>
+          <div className="mt-6">
+            {activeTab === "entered" && (
+              <div className="space-y-8">
+                <section className="rounded-lg border border-gray-200 border-l-4 border-l-calpoly-gold bg-gray-50/50 p-5">
+                  <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
+                    <Clock className="h-4 w-4 text-calpoly-gold" />
+                    Pending approval
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Waiting for admin review.
+                  </p>
+                  {loading ? (
+                    <p className="mt-4 text-sm text-gray-500">Loading...</p>
+                  ) : myEnteredPending.length === 0 ? (
+                    <div className="mt-4 rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
+                      No pending risks.
+                    </div>
+                  ) : (
+                    <ul className="mt-4 space-y-3">
+                      {myEnteredPending.map((risk) => (
+                        <RiskRow
+                          key={String(risk.id ?? risk.risk_id ?? Math.random())}
+                          risk={risk}
+                          onView={() => setViewRisk(mapApiRiskToRisk(risk))}
+                          dateLabel="Entered"
+                          dateValue={formatDate(risk.risk_creation_at) || undefined}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                <section className="rounded-lg border border-gray-200 border-l-4 border-l-calpoly-green bg-gray-50/50 p-5">
+                  <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
+                    <CheckCircle className="h-4 w-4 text-calpoly-green" />
+                    Approved
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Approved and visible on the dashboard.
+                  </p>
+                  {loading ? (
+                    <p className="mt-4 text-sm text-gray-500">Loading...</p>
+                  ) : myEnteredApproved.length === 0 ? (
+                    <div className="mt-4 rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
+                      No approved risks yet.
+                    </div>
+                  ) : (
+                    <ul className="mt-4 space-y-3">
+                      {myEnteredApproved.map((risk) => (
+                        <RiskRow
+                          key={String(risk.id ?? risk.risk_id ?? Math.random())}
+                          risk={risk}
+                          onView={() => setViewRisk(mapApiRiskToRisk(risk))}
+                          dateLabel="Approved"
+                          dateValue={formatDate(risk.actioned_at) || undefined}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                <section className="rounded-lg border border-gray-200 border-l-4 border-l-amber-500 bg-gray-50/50 p-5">
+                  <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
+                    <XCircle className="h-4 w-4 text-amber-600" />
+                    Rejected
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Rejected with reason; view full details below.
+                  </p>
+                  {loading ? (
+                    <p className="mt-4 text-sm text-gray-500">Loading...</p>
+                  ) : myEnteredRejected.length === 0 ? (
+                    <div className="mt-4 rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
+                      No rejected risks.
+                    </div>
+                  ) : (
+                    <ul className="mt-4 space-y-3">
+                      {myEnteredRejected.map((risk) => (
+                        <RejectedRow
+                          key={String(risk.id ?? risk.risk_id ?? Math.random())}
+                          risk={risk}
+                          onView={() => setViewRisk(mapApiRiskToRisk(risk))}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {activeTab === "approved" && isAdmin && (
+              <div>
+                <h2 className="text-lg font-semibold text-calpoly-green">Risks you approved</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Approved and visible on the dashboard.
+                  Risks you have approved as an admin.
                 </p>
                 {loading ? (
                   <p className="mt-4 text-sm text-gray-500">Loading...</p>
-                ) : myEnteredApproved.length === 0 ? (
-                  <div className="mt-4 rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
-                    No approved risks yet.
-                  </div>
+                ) : risksIApproved.length === 0 ? (
+                  <EmptySection
+                    message="No risks approved by you yet"
+                    subMessage="When you approve risks in Admin Review, they will appear here."
+                    actionLabel="Go to Admin Review"
+                    actionHref="/dashboard/admin/review"
+                  />
                 ) : (
                   <ul className="mt-4 space-y-3">
-                    {myEnteredApproved.map((risk) => (
+                    {risksIApproved.map((risk) => (
                       <RiskRow
                         key={String(risk.id ?? risk.risk_id ?? Math.random())}
                         risk={risk}
@@ -630,25 +978,27 @@ export default function ProfilePage() {
                     ))}
                   </ul>
                 )}
-              </section>
+              </div>
+            )}
 
-              <section className="rounded-lg border border-gray-200 border-l-4 border-l-amber-500 bg-gray-50/50 p-5">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-calpoly-green">
-                  <XCircle className="h-4 w-4 text-amber-600" />
-                  Rejected
-                </h2>
+            {activeTab === "rejected" && isAdmin && (
+              <div>
+                <h2 className="text-lg font-semibold text-calpoly-green">Risks you rejected</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Rejected with reason; view full details below.
+                  Risks you have rejected as an admin.
                 </p>
                 {loading ? (
                   <p className="mt-4 text-sm text-gray-500">Loading...</p>
-                ) : myEnteredRejected.length === 0 ? (
-                  <div className="mt-4 rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
-                    No rejected risks.
-                  </div>
+                ) : risksIRejected.length === 0 ? (
+                  <EmptySection
+                    message="No risks rejected by you yet"
+                    subMessage="When you reject risks in Admin Review, they will appear here."
+                    actionLabel="Go to Admin Review"
+                    actionHref="/dashboard/admin/review"
+                  />
                 ) : (
                   <ul className="mt-4 space-y-3">
-                    {myEnteredRejected.map((risk) => (
+                    {risksIRejected.map((risk) => (
                       <RejectedRow
                         key={String(risk.id ?? risk.risk_id ?? Math.random())}
                         risk={risk}
@@ -657,71 +1007,11 @@ export default function ProfilePage() {
                     ))}
                   </ul>
                 )}
-              </section>
-            </div>
-          )}
-
-          {activeTab === "approved" && isAdmin && (
-            <div>
-              <h2 className="text-lg font-semibold text-calpoly-green">Risks you approved</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Risks you have approved as an admin.
-              </p>
-              {loading ? (
-                <p className="mt-4 text-sm text-gray-500">Loading...</p>
-              ) : risksIApproved.length === 0 ? (
-                <EmptySection
-                  message="No risks approved by you yet"
-                  subMessage="When you approve risks in Admin Review, they will appear here."
-                  actionLabel="Go to Admin Review"
-                  actionHref="/dashboard/admin/review"
-                />
-              ) : (
-                <ul className="mt-4 space-y-3">
-                  {risksIApproved.map((risk) => (
-                    <RiskRow
-                      key={String(risk.id ?? risk.risk_id ?? Math.random())}
-                      risk={risk}
-                      onView={() => setViewRisk(mapApiRiskToRisk(risk))}
-                      dateLabel="Approved"
-                      dateValue={formatDate(risk.actioned_at) || undefined}
-                    />
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {activeTab === "rejected" && isAdmin && (
-            <div>
-              <h2 className="text-lg font-semibold text-calpoly-green">Risks you rejected</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Risks you have rejected as an admin.
-              </p>
-              {loading ? (
-                <p className="mt-4 text-sm text-gray-500">Loading...</p>
-              ) : risksIRejected.length === 0 ? (
-                <EmptySection
-                  message="No risks rejected by you yet"
-                  subMessage="When you reject risks in Admin Review, they will appear here."
-                  actionLabel="Go to Admin Review"
-                  actionHref="/dashboard/admin/review"
-                />
-              ) : (
-                <ul className="mt-4 space-y-3">
-                  {risksIRejected.map((risk) => (
-                    <RejectedRow
-                      key={String(risk.id ?? risk.risk_id ?? Math.random())}
-                      risk={risk}
-                      onView={() => setViewRisk(mapApiRiskToRisk(risk))}
-                    />
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <RiskModal
         isOpen={!!viewRisk}
