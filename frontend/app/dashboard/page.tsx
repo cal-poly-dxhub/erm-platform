@@ -615,7 +615,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => fetchRisks()}
-            className="inline-flex items-center gap-2 rounded-lg bg-calpoly-green px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
           >
             <RefreshCcw className="h-4 w-4" />
             Refresh data

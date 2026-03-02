@@ -384,18 +384,6 @@ export default function AdminReviewPage() {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
-          <Link
-            href="/dashboard/admin/users"
-            className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
-          >
-            User Management
-          </Link>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-          >
-            Dashboard
-          </Link>
         </div>
       </div>
 

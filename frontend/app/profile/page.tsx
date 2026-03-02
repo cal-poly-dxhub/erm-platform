@@ -563,7 +563,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header: eyebrow + title + subtitle, aligned with Dashboard / Risk Register */}
+      {/* Page header: eyebrow + title + subtitle + refresh */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-calpoly-gold">
@@ -586,25 +586,6 @@ export default function ProfilePage() {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Risk Register
-          </Link>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/api/auth/logout"
-            className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
-          >
-            Sign Out
-          </Link>
         </div>
       </div>
 
