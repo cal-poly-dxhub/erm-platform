@@ -276,6 +276,123 @@ const mapApiToRiskForMatrix = (risk: ApiRisk): Risk => ({
   approvalStatus: risk.approval_status ?? undefined,
 });
 
+const DONUT_COLORS = [
+  "#154734",
+  "#8B7355",
+  "#C69214",
+  "#0D9488",
+  "#059669",
+  "#475569",
+  "#6366f1",
+  "#b45309",
+  "#0e7490",
+  "#4f46e5",
+];
+
+function CategoryDonutChart({
+  categoryCounts,
+  selectedCategory,
+  onSelectCategory,
+}: {
+  categoryCounts: [string, number][];
+  selectedCategory: string | null;
+  onSelectCategory: (category: string) => void;
+}) {
+  const total = categoryCounts.reduce((sum, [, count]) => sum + count, 0);
+  if (total === 0) return null;
+  const size = 200;
+  const cx = size / 2;
+  const cy = size / 2;
+  const rOuter = 72;
+  const rInner = 40;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  let startAngle = 0;
+  return (
+    <div className="aspect-square h-56 shrink-0 sm:h-64" style={{ maxWidth: "min(100%, 16rem)" }}>
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        preserveAspectRatio="xMidYMid meet"
+        className="h-full w-full"
+        aria-label="Risk category distribution"
+      >
+        {categoryCounts.map(([category, count], i) => {
+          const span = Math.min((count / total) * 360, 359.99);
+          const endAngle = startAngle + span;
+          const x1o = cx + rOuter * Math.cos(toRad(startAngle));
+          const y1o = cy - rOuter * Math.sin(toRad(startAngle));
+          const x2o = cx + rOuter * Math.cos(toRad(endAngle));
+          const y2o = cy - rOuter * Math.sin(toRad(endAngle));
+          const x1i = cx + rInner * Math.cos(toRad(startAngle));
+          const y1i = cy - rInner * Math.sin(toRad(startAngle));
+          const x2i = cx + rInner * Math.cos(toRad(endAngle));
+          const y2i = cy - rInner * Math.sin(toRad(endAngle));
+          const largeArc = span > 180 ? 1 : 0;
+          const pathD = `M ${x1o} ${y1o} A ${rOuter} ${rOuter} 0 ${largeArc} 0 ${x2o} ${y2o} L ${x2i} ${y2i} A ${rInner} ${rInner} 0 ${largeArc} 1 ${x1i} ${y1i} Z`;
+          const color = DONUT_COLORS[i % DONUT_COLORS.length];
+          const isSelected = selectedCategory === category;
+          startAngle = endAngle;
+          return (
+            <path
+              key={category}
+              d={pathD}
+              fill={color}
+              stroke="white"
+              strokeWidth={2}
+              className="cursor-pointer transition hover:opacity-90"
+              style={{
+                opacity: isSelected ? 1 : 0.92,
+                filter: isSelected ? "drop-shadow(0 1px 2px rgba(0,0,0,0.1))" : undefined,
+              }}
+              onClick={() => onSelectCategory(category)}
+              onKeyDown={(e) => e.key === "Enter" && onSelectCategory(category)}
+              role="button"
+              tabIndex={0}
+              aria-label={`${category}: ${count} risks`}
+            />
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function CategoryLegend({
+  categoryCounts,
+  selectedCategory,
+  onSelectCategory,
+}: {
+  categoryCounts: [string, number][];
+  selectedCategory: string | null;
+  onSelectCategory: (category: string) => void;
+}) {
+  return (
+    <ul className="space-y-2.5" role="list">
+      {categoryCounts.map(([category, count], i) => {
+        const color = DONUT_COLORS[i % DONUT_COLORS.length];
+        const isSelected = selectedCategory === category;
+        return (
+          <li key={category}>
+            <button
+              type="button"
+              onClick={() => onSelectCategory(category)}
+              className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition ${
+                isSelected ? "bg-gray-100" : "hover:bg-gray-50"
+              }`}
+            >
+              <span
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+              <span className="flex-1 font-medium text-gray-800">{category}</span>
+              <span className="shrink-0 text-gray-500">({count})</span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export default function DashboardPage() {
   const [risks, setRisks] = useState<ApiRisk[]>([]);
   const [loading, setLoading] = useState(true);
@@ -294,6 +411,7 @@ export default function DashboardPage() {
   });
   type DashboardTabId = "overview" | "workflow" | "analysis" | "unit" | "category" | "matrix";
   const [activeTab, setActiveTab] = useState<DashboardTabId>("overview");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const approvedRisks = useMemo(
     () => risks.filter((r) => r.approval_status === "approved"),
@@ -462,12 +580,9 @@ export default function DashboardPage() {
     const highResidualCount = residualValues.filter(
       (value) => value >= HIGH_RISK_THRESHOLD,
     ).length;
-    const openCount = approvedRisks.filter((risk) => {
-      const status = (risk.status || "").toLowerCase();
-      return (
-        status && !status.includes("closed") && !status.includes("resolved")
-      );
-    }).length;
+    const mediumResidualCount = residualValues.filter(
+      (value) => value >= 6 && value < HIGH_RISK_THRESHOLD,
+    ).length;
 
     const statusCounts = groupCounts(approvedRisks, (risk) =>
       normalizeStatusLabel(risk.status),
@@ -494,7 +609,7 @@ export default function DashboardPage() {
       avgResidual,
       maxResidual,
       highResidualCount,
-      openCount,
+      mediumResidualCount,
       statusCounts,
       categoryCounts,
       unitCounts,
@@ -502,6 +617,22 @@ export default function DashboardPage() {
       topRisks,
     };
   }, [approvedRisks]);
+
+  const categoryCountsForPie = useMemo(
+    () =>
+      groupCounts(approvedRisks, (risk) =>
+        normalizeKey(risk.category, "Uncategorized"),
+      ),
+    [approvedRisks],
+  );
+
+  const risksInSelectedCategory = useMemo(() => {
+    if (!selectedCategory) return [];
+    return approvedRisks.filter(
+      (risk) =>
+        normalizeKey(risk.category, "Uncategorized") === selectedCategory,
+    );
+  }, [approvedRisks, selectedCategory]);
 
   const updateFilter = (key: keyof FilterState, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -839,7 +970,7 @@ export default function DashboardPage() {
               <p className="mt-1 text-xs text-gray-400">Approved records</p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-gray-500">High Residual</p>
+              <p className="text-sm font-semibold text-gray-500">High Priority</p>
               <p className="mt-2 flex items-center text-3xl font-bold text-risk-high">
                 <AlertTriangle className="mr-2 h-5 w-5" />
                 {loading ? "--" : analytics.highResidualCount}
@@ -847,18 +978,18 @@ export default function DashboardPage() {
               <p className="mt-1 text-xs text-gray-400">Rating {HIGH_RISK_THRESHOLD}+</p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-gray-500">Avg Residual</p>
+              <p className="text-sm font-semibold text-gray-500">Medium Priority</p>
+              <p className="mt-2 text-3xl font-bold text-amber-600">
+                {loading ? "--" : analytics.mediumResidualCount}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">Rating 6–14</p>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-gray-500">Avg Residual Score</p>
               <p className="mt-2 text-3xl font-bold text-calpoly-green">
                 {loading ? "--" : analytics.avgResidual}
               </p>
               <p className="mt-1 text-xs text-gray-400">Max {loading ? "--" : analytics.maxResidual}</p>
-            </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-gray-500">Open Items</p>
-              <p className="mt-2 text-3xl font-bold text-calpoly-green">
-                {loading ? "--" : analytics.openCount}
-              </p>
-              <p className="mt-1 text-xs text-gray-400">Excl. closed/resolved</p>
             </div>
           </section>
 
@@ -1180,30 +1311,63 @@ export default function DashboardPage() {
       {/* By Category tab */}
       {activeTab === "category" && (
         <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-calpoly-green">
-            Risks by Category
+          <h3 className="text-base font-semibold text-gray-900">
+            Risk Category Distribution
           </h3>
-          <p className="mt-1 text-sm text-gray-600">
-            Top categories for approved risks.
+          <p className="mt-0.5 text-sm text-gray-500">
+            Click a segment or legend item to see risks in that category.
           </p>
-          <div className="mt-4 space-y-3">
-            {analytics.categoryCounts.map(([category, count], index) => (
-              <div
-                key={`${category}-${index}`}
-                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
-              >
-                <span className="text-sm font-medium text-gray-700">
-                  {category}
-                </span>
-                <span className="text-sm font-semibold text-calpoly-green">
-                  {count}
-                </span>
+
+          {!loading && categoryCountsForPie.length === 0 && (
+            <p className="mt-4 text-sm text-gray-500">No category data.</p>
+          )}
+
+          {categoryCountsForPie.length > 0 && (
+            <>
+              <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
+                <div className="flex justify-center sm:justify-start">
+                  <CategoryDonutChart
+                    categoryCounts={categoryCountsForPie}
+                    selectedCategory={selectedCategory}
+                    onSelectCategory={setSelectedCategory}
+                  />
+                </div>
+                <div className="min-w-0 flex-1 sm:max-w-xs">
+                  <CategoryLegend
+                    categoryCounts={categoryCountsForPie}
+                    selectedCategory={selectedCategory}
+                    onSelectCategory={setSelectedCategory}
+                  />
+                </div>
               </div>
-            ))}
-            {!loading && analytics.categoryCounts.length === 0 && (
-              <p className="text-sm text-gray-500">No category data.</p>
-            )}
-          </div>
+
+              {selectedCategory && (
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                  <h4 className="text-sm font-semibold text-calpoly-green">
+                    Risks in “{selectedCategory}” ({risksInSelectedCategory.length})
+                  </h4>
+                  <div className="mt-3 space-y-2">
+                    {risksInSelectedCategory.map((risk, index) => (
+                      <div
+                        key={risk.risk_id || `cat-risk-${index}`}
+                        className="flex flex-col gap-1 rounded-lg border border-gray-200 bg-gray-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <p className="min-w-0 flex-1 text-sm font-medium text-gray-800">
+                          {risk.risk_description || "Untitled risk"}
+                        </p>
+                        <div className="flex shrink-0 items-center gap-3 text-xs text-gray-600">
+                          <span>{normalizeKey(risk.owner, "—")}</span>
+                          <span className="rounded bg-white px-2 py-0.5 font-medium text-gray-700">
+                            {risk.residual_risk_rating ?? "—"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </section>
       )}
 
