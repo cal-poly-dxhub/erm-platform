@@ -292,10 +292,8 @@ export default function DashboardPage() {
     owner: "",
     unit: "",
   });
-  const [filtersOpen, setFiltersOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "unit" | "category" | "matrix"
-  >("overview");
+  type DashboardTabId = "overview" | "workflow" | "analysis" | "unit" | "category" | "matrix";
+  const [activeTab, setActiveTab] = useState<DashboardTabId>("overview");
 
   const approvedRisks = useMemo(
     () => risks.filter((r) => r.approval_status === "approved"),
@@ -561,31 +559,13 @@ export default function DashboardPage() {
     return approvedRisks.find((risk) => getRiskKey(risk) === selectedRiskKey);
   }, [approvedRisks, selectedRiskKey]);
 
-  const DASHBOARD_TABS: {
-    id: "overview" | "unit" | "category" | "matrix";
-    label: string;
-    description: string;
-  }[] = [
-    {
-      id: "overview",
-      label: "Overview",
-      description: "High-level metrics, workflow board, and detailed record view.",
-    },
-    {
-      id: "unit",
-      label: "By Unit",
-      description: "Counts of approved risks grouped by unit.",
-    },
-    {
-      id: "category",
-      label: "By Category",
-      description: "Counts of approved risks grouped by risk category.",
-    },
-    {
-      id: "matrix",
-      label: "Risk Matrix",
-      description: "Baseline likelihood and impact heatmap for approved risks.",
-    },
+  const DASHBOARD_TABS: { id: DashboardTabId; label: string; description: string }[] = [
+    { id: "overview", label: "Overview", description: "Key metrics and priority risks at a glance." },
+    { id: "workflow", label: "Workflow Board", description: "Risks by stage: Identified → Assessing → Mitigating → Monitoring → Closed." },
+    { id: "analysis", label: "Analysis", description: "Status mix, categories, residual spread, and unit distribution." },
+    { id: "unit", label: "By Unit", description: "Counts of approved risks grouped by unit." },
+    { id: "category", label: "By Category", description: "Counts of approved risks grouped by risk category." },
+    { id: "matrix", label: "Risk Matrix", description: "Baseline likelihood and impact heatmap for approved risks." },
   ];
 
   useEffect(() => {
@@ -651,168 +631,158 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Global unit/department filters */}
+      {/* Filters */}
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-            <div>
-              <h2 className="text-sm font-semibold text-calpoly-green">
-                Global Filters
-              </h2>
-              <p className="mt-0.5 text-xs text-gray-500">
-                Unit and department filters apply to all dashboard tabs.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={filters.unit}
-                onChange={(event) =>
-                  updateFilter("unit", event.target.value)
-                }
-                className="min-w-[10rem] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-              >
-                <option value="">All Units</option>
-                {filterOptions.unit.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filters.department}
-                onChange={(event) =>
-                  updateFilter("department", event.target.value)
-                }
-                className="min-w-[10rem] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-              >
-                <option value="">All Departments</option>
-                {filterOptions.department.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-calpoly-green">Filters</h2>
+            <p className="mt-0.5 text-sm text-gray-500">
+              Filter results by unit, department, category, status, or owner. Applies to all tabs.
+            </p>
           </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            <div className="flex items-center gap-1">
-              <ArrowDownUp className="h-3.5 w-3.5" />
-              <span>Limit</span>
-              <input
-                type="number"
-                min={10}
-                max={250}
-                value={limit}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  if (!Number.isFinite(next)) {
-                    setLimit(10);
-                    return;
-                  }
-                  const clamped = Math.min(250, Math.max(10, next));
-                  setLimit(clamped);
-                }}
-                className="w-16 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((open) => !open)}
-              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {filtersOpen ? "Hide filters" : "More filters"}
-            </button>
+          <div className="flex items-center gap-1 text-xs text-gray-500">
+            <ArrowDownUp className="h-3.5 w-3.5 shrink-0" />
+            <span>Limit</span>
+            <input
+              id="filter-limit"
+              type="number"
+              min={10}
+              max={250}
+              value={limit}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (!Number.isFinite(next)) setLimit(10);
+                else setLimit(Math.min(250, Math.max(10, next)));
+              }}
+              className="w-16 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+            />
           </div>
         </div>
 
-        {filtersOpen && (
-          <div className="mt-4 space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <select
-                value={filters.category}
-                onChange={(event) =>
-                  updateFilter("category", event.target.value)
-                }
-                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-              >
-                <option value="">All Categories</option>
-                {filterOptions.category.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filters.status}
-                onChange={(event) =>
-                  updateFilter("status", event.target.value)
-                }
-                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-              >
-                <option value="">All Statuses</option>
-                {filterOptions.status.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filters.owner}
-                onChange={(event) =>
-                  updateFilter("owner", event.target.value)
-                }
-                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-              >
-                <option value="">All Owners</option>
-                {filterOptions.owner.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div>
-              <label className="text-sm font-semibold text-gray-600">
-                Semantic Search
+              <label htmlFor="filter-unit" className="block text-sm font-medium text-gray-700">
+                Unit
               </label>
-              <input
-                value={semanticQuery}
-                onChange={(event) => setSemanticQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    handleApplyFilters();
-                  }
-                }}
-                placeholder="Search by risk description or analysis..."
-                className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-              />
+              <select
+                id="filter-unit"
+                value={filters.unit}
+                onChange={(e) => updateFilter("unit", e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+              >
+                <option value="">All units</option>
+                {filterOptions.unit.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
             </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={handleApplyFilters}
-                className="rounded-lg bg-calpoly-gold px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            <div>
+              <label htmlFor="filter-department" className="block text-sm font-medium text-gray-700">
+                Department
+              </label>
+              <select
+                id="filter-department"
+                value={filters.department}
+                onChange={(e) => updateFilter("department", e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
               >
-                Apply Filters
-              </button>
-              <button
-                onClick={handleClearFilters}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                <option value="">All departments</option>
+                {filterOptions.department.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filter-category" className="block text-sm font-medium text-gray-700">
+                Category
+              </label>
+              <select
+                id="filter-category"
+                value={filters.category}
+                onChange={(e) => updateFilter("category", e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
               >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={exportCsv}
-                className="inline-flex items-center rounded-lg border border-calpoly-green bg-white px-4 py-2 text-sm font-semibold text-calpoly-green shadow-sm transition hover:bg-gray-50"
+                <option value="">All categories</option>
+                {filterOptions.category.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filter-status" className="block text-sm font-medium text-gray-700">
+                Status
+              </label>
+              <select
+                id="filter-status"
+                value={filters.status}
+                onChange={(e) => updateFilter("status", e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
               >
-                <Download className="mr-2 h-4 w-4" />
-                Export CSV
-              </button>
+                <option value="">All statuses</option>
+                {filterOptions.status.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filter-owner" className="block text-sm font-medium text-gray-700">
+                Owner
+              </label>
+              <select
+                id="filter-owner"
+                value={filters.owner}
+                onChange={(e) => updateFilter("owner", e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+              >
+                <option value="">All owners</option>
+                {filterOptions.owner.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
             </div>
           </div>
-        )}
+
+          <div>
+            <label htmlFor="filter-search" className="block text-sm font-medium text-gray-700">
+              Search
+            </label>
+            <input
+              id="filter-search"
+              type="text"
+              value={semanticQuery}
+              onChange={(e) => setSemanticQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleApplyFilters()}
+              placeholder="Search by risk description or analysis…"
+              className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-calpoly-gold focus:outline-none focus:ring-2 focus:ring-calpoly-gold/30"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              onClick={handleApplyFilters}
+              className="rounded-lg bg-calpoly-gold px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            >
+              Apply Filters
+            </button>
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="inline-flex items-center gap-2 rounded-lg border border-calpoly-green bg-white px-4 py-2 text-sm font-medium text-calpoly-green shadow-sm transition hover:bg-calpoly-green/5"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
+          </div>
+        </div>
       </section>
 
       {/* Tabs */}
@@ -822,11 +792,7 @@ export default function DashboardPage() {
             <button
               key={tab.id}
               type="button"
-              onClick={() =>
-                setActiveTab(
-                  tab.id as "overview" | "unit" | "category" | "matrix",
-                )
-              }
+              onClick={() => setActiveTab(tab.id)}
               className={`border-b-2 px-1 pb-2 text-sm font-medium ${
                 activeTab === tab.id
                   ? "border-calpoly-gold text-calpoly-green"
@@ -861,319 +827,326 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Overview tab */}
+      {/* Overview tab — compact summary */}
       {activeTab === "overview" && (
         <>
-      <section className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-gray-500">Total Risks</p>
-            <p className="mt-3 text-3xl font-bold text-calpoly-green">
-              {loading ? "--" : approvedRisks.length}
-            </p>
-            <p className="mt-2 text-xs text-gray-400">Records returned</p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-gray-500">
-              High Residual Risks
-            </p>
-            <p className="mt-3 flex items-center text-3xl font-bold text-risk-high">
-              <AlertTriangle className="mr-2 h-6 w-6" />
-              {loading ? "--" : analytics.highResidualCount}
-            </p>
-            <p className="mt-2 text-xs text-gray-400">
-              Residual rating {HIGH_RISK_THRESHOLD}+
-            </p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-gray-500">
-              Avg Residual Rating
-            </p>
-            <p className="mt-3 text-3xl font-bold text-calpoly-green">
-              {loading ? "--" : analytics.avgResidual}
-            </p>
-            <p className="mt-2 text-xs text-gray-400">
-              Max {loading ? "--" : analytics.maxResidual}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-gray-500">Open Items</p>
-            <p className="mt-3 text-3xl font-bold text-calpoly-green">
-              {loading ? "--" : analytics.openCount}
-            </p>
-            <p className="mt-2 text-xs text-gray-400">
-              Excludes Closed and Resolved
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-calpoly-green">
-              Status Mix
-            </h3>
-            <div className="mt-4 space-y-3">
-              {analytics.statusCounts.map(([status, count]) => {
-                const width = approvedRisks.length
-                  ? Math.round((count / approvedRisks.length) * 100)
-                  : 0;
-                return (
-                  <div key={status}>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>{status}</span>
-                      <span>{count}</span>
-                    </div>
-                    <div className="mt-2 h-2 rounded-full bg-gray-200">
-                      <div
-                        className="h-2 rounded-full bg-calpoly-green"
-                        style={{ width: `${width}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-              {!loading && analytics.statusCounts.length === 0 && (
-                <p className="text-sm text-gray-500">No status data.</p>
-              )}
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-gray-500">Total Risks</p>
+              <p className="mt-2 text-3xl font-bold text-calpoly-green">
+                {loading ? "--" : approvedRisks.length}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">Approved records</p>
             </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-calpoly-green">
-              Category Concentration
-            </h3>
-            <div className="mt-4 space-y-3">
-              {analytics.categoryCounts.map(([category, count], index) => (
-                <div
-                  key={`${category}-${index}`}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
-                >
-                  <span className="text-sm font-medium text-gray-700">
-                    {category}
-                  </span>
-                  <span className="text-sm font-semibold text-calpoly-green">
-                    {count}
-                  </span>
-                </div>
-              ))}
-              {!loading && analytics.categoryCounts.length === 0 && (
-                <p className="text-sm text-gray-500">No category data.</p>
-              )}
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-gray-500">High Residual</p>
+              <p className="mt-2 flex items-center text-3xl font-bold text-risk-high">
+                <AlertTriangle className="mr-2 h-5 w-5" />
+                {loading ? "--" : analytics.highResidualCount}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">Rating {HIGH_RISK_THRESHOLD}+</p>
             </div>
-          </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-gray-500">Avg Residual</p>
+              <p className="mt-2 text-3xl font-bold text-calpoly-green">
+                {loading ? "--" : analytics.avgResidual}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">Max {loading ? "--" : analytics.maxResidual}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-gray-500">Open Items</p>
+              <p className="mt-2 text-3xl font-bold text-calpoly-green">
+                {loading ? "--" : analytics.openCount}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">Excl. closed/resolved</p>
+            </div>
+          </section>
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-calpoly-green">
-              Residual Rating Spread
-            </h3>
-            <div className="mt-4 space-y-3">
-              {analytics.bins.map((bin) => {
-                const width = approvedRisks.length
-                  ? Math.round((bin.count / approvedRisks.length) * 100)
-                  : 0;
-                return (
-                  <div key={bin.label}>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>{bin.label}</span>
-                      <span>{bin.count}</span>
+          <section className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h3 className="text-base font-semibold text-calpoly-green">Status Mix</h3>
+              <div className="mt-3 space-y-2">
+                {analytics.statusCounts.slice(0, 5).map(([status, count]) => {
+                  const width = approvedRisks.length
+                    ? Math.round((count / approvedRisks.length) * 100)
+                    : 0;
+                  return (
+                    <div key={status} className="flex items-center gap-3">
+                      <span className="w-24 shrink-0 text-sm text-gray-600">{status}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="h-2 rounded-full bg-gray-200">
+                          <div
+                            className="h-2 rounded-full bg-calpoly-green"
+                            style={{ width: `${width}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="w-8 text-right text-sm font-medium text-gray-700">{count}</span>
                     </div>
-                    <div className="mt-2 h-2 rounded-full bg-gray-200">
-                      <div
-                        className="h-2 rounded-full bg-calpoly-gold"
-                        style={{ width: `${width}%` }}
-                      />
+                  );
+                })}
+                {!loading && analytics.statusCounts.length === 0 && (
+                  <p className="text-sm text-gray-500">No status data.</p>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h3 className="text-base font-semibold text-calpoly-green">Residual Spread</h3>
+              <div className="mt-3 space-y-2">
+                {analytics.bins.map((bin) => {
+                  const width = approvedRisks.length
+                    ? Math.round((bin.count / approvedRisks.length) * 100)
+                    : 0;
+                  return (
+                    <div key={bin.label} className="flex items-center gap-3">
+                      <span className="w-12 shrink-0 text-sm text-gray-600">{bin.label}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="h-2 rounded-full bg-gray-200">
+                          <div
+                            className="h-2 rounded-full bg-calpoly-gold"
+                            style={{ width: `${width}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="w-8 text-right text-sm font-medium text-gray-700">{bin.count}</span>
                     </div>
-                  </div>
-                );
-              })}
-              {!loading && analytics.bins.length === 0 && (
-                <p className="text-sm text-gray-500">No rating data.</p>
-              )}
+                  );
+                })}
+                {!loading && analytics.bins.length === 0 && (
+                  <p className="text-sm text-gray-500">No rating data.</p>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-calpoly-green">
-              Top Units
-            </h3>
-            <div className="mt-4 space-y-3">
-              {analytics.unitCounts.map(([unit, count]) => (
-                <div
-                  key={unit}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
-                >
-                  <span className="text-sm text-gray-700">{unit}</span>
-                  <span className="text-sm font-semibold text-calpoly-green">
-                    {count} risks
-                  </span>
-                </div>
-              ))}
-              {!loading && analytics.unitCounts.length === 0 && (
-                <p className="text-sm text-gray-500">No unit data.</p>
-              )}
+          <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-calpoly-green">Priority Risks</h3>
+              <button
+                type="button"
+                onClick={() => setActiveTab("workflow")}
+                className="text-sm font-medium text-calpoly-gold hover:underline"
+              >
+                View Workflow Board →
+              </button>
             </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-calpoly-green">
-              Priority Residual Risks
-            </h3>
-            <div className="mt-4 space-y-3">
-              {analytics.topRisks.map((risk, index) => (
+            <div className="mt-4 space-y-2">
+              {analytics.topRisks.slice(0, 4).map((risk, index) => (
                 <div
                   key={risk.risk_id || `risk-${index}`}
-                  className="rounded-lg border border-gray-200 bg-gray-50 p-3"
+                  className="flex items-center justify-between gap-4 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2"
                 >
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-gray-800">
-                      {risk.risk_description || "Risk item"}
-                    </p>
-                    <span className="text-xs font-semibold text-calpoly-gold">
-                      {risk.residual_risk_rating ?? "--"}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {normalizeKey(risk.department, "Department N/A")} -{" "}
-                    {normalizeKey(risk.owner, "Owner N/A")}
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">
+                    {risk.risk_description || "Risk item"}
                   </p>
+                  <span className="shrink-0 rounded-full bg-calpoly-gold/10 px-2 py-0.5 text-xs font-semibold text-calpoly-green">
+                    {risk.residual_risk_rating ?? "--"}
+                  </span>
                 </div>
               ))}
               {!loading && analytics.topRisks.length === 0 && (
-                <p className="text-sm text-gray-500">No risk records.</p>
+                <p className="text-sm text-gray-500">No risk records. Apply filters or refresh.</p>
               )}
             </div>
-          </div>
-        </section>
+          </section>
+        </>
+      )}
 
-        <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-calpoly-green">
-              Risk Workflow Board
-            </h3>
-            {loading && (
-              <span className="text-sm text-gray-500">Loading data...</span>
-            )}
-          </div>
-          
-          <div className="mt-4 overflow-x-auto overflow-y-hidden pb-2">
-            <div className="grid min-w-[1120px] grid-cols-5 gap-4">
-              {BOARD_LANES.map((lane) => (
-                <div
-                  key={lane.key}
-                  className="flex max-h-[70vh] min-h-[200px] flex-col rounded-xl border border-gray-200 bg-gray-50 p-3"
-                >
-                  <div className="mb-3 flex shrink-0 items-center justify-between">
-                    <h4 className="text-sm font-semibold text-gray-700">
-                      {lane.label}
-                    </h4>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-gray-600">
-                      {boardLanes[lane.key].length}
-                    </span>
-                  </div>
-                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                    {boardLanes[lane.key].map((risk) => {
-                      const riskKey = getRiskKey(risk);
-                      const residual = toNumber(risk.residual_risk_rating);
-                      return (
-                        <button
-                          key={riskKey}
-                          type="button"
-                          onClick={() => setSelectedRiskKey(riskKey)}
-                          className={`w-full rounded-lg border bg-white p-3 text-left shadow-sm transition hover:border-calpoly-gold hover:shadow ${
-                            selectedRiskKey === riskKey
-                              ? "border-calpoly-gold ring-2 ring-calpoly-gold"
-                              : "border-gray-200"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-semibold text-gray-800">
-                              {risk.risk_description || "Risk item"}
-                            </p>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getResidualTone(
-                                residual,
-                              )}`}
-                            >
-                              {residual ?? "--"}
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xs text-gray-500">
-                            {normalizeKey(risk.owner, "Owner N/A")}
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            {normalizeKey(risk.unit, "Unit N/A")} |{" "}
-                            {normalizeKey(risk.category, "No category")}
-                          </p>
-                        </button>
-                      );
-                    })}
-                    {boardLanes[lane.key].length === 0 && (
-                      <p className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-4 text-center text-xs text-gray-400">
-                        No risks
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+      {/* Workflow Board tab */}
+      {activeTab === "workflow" && (
+        <>
+          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-calpoly-green">Risk Workflow Board</h3>
+              {loading && (
+                <span className="text-sm text-gray-500">Loading...</span>
+              )}
             </div>
-          </div>
-        </section>
-
-        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-calpoly-green">
-            Risk Detail
-          </h3>
-          {!selectedRisk && !loading && (
-            <p className="mt-3 text-sm text-gray-500">
-              No risk selected. Apply filters or select a risk from the board.
-            </p>
-          )}
-          {selectedRisk && (
-            <div className="mt-4 space-y-5">
-              <div className="rounded-xl border border-gray-200 p-4">
-                <h5 className="text-sm font-semibold text-gray-700">
-                  Full Risk Record
-                </h5>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {DETAIL_FIELDS.map((field) => {
-                    const rawValue = selectedRisk[field];
-                    let displayValue = formatCellValue(rawValue);
-                    if (
-                      DATE_DETAIL_FIELDS.has(field) &&
-                      typeof rawValue === "string" &&
-                      rawValue.trim()
-                    ) {
-                      const parsed = new Date(rawValue);
-                      if (!Number.isNaN(parsed.getTime())) {
-                        displayValue = parsed.toLocaleString();
-                      }
-                    }
-
-                    return (
-                      <div
-                        key={field}
-                        className={`rounded-lg bg-gray-50 p-3 ${
-                          LONG_TEXT_DETAIL_FIELDS.has(field)
-                            ? "sm:col-span-2 lg:col-span-4"
-                            : ""
-                        }`}
-                      >
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          {formatFieldLabel(field)}
+            <div className="mt-4 overflow-x-auto pb-2">
+              <div className="grid min-w-[1120px] grid-cols-5 gap-4">
+                {BOARD_LANES.map((lane) => (
+                  <div
+                    key={lane.key}
+                    className="flex max-h-[65vh] min-h-[180px] flex-col rounded-xl border border-gray-200 bg-gray-50 p-3"
+                  >
+                    <div className="mb-3 flex shrink-0 items-center justify-between">
+                      <h4 className="text-sm font-semibold text-gray-700">{lane.label}</h4>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-gray-600">
+                        {boardLanes[lane.key].length}
+                      </span>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                      {boardLanes[lane.key].map((risk) => {
+                        const riskKey = getRiskKey(risk);
+                        const residual = toNumber(risk.residual_risk_rating);
+                        return (
+                          <button
+                            key={riskKey}
+                            type="button"
+                            onClick={() => setSelectedRiskKey(riskKey)}
+                            className={`w-full rounded-lg border bg-white p-2.5 text-left text-sm shadow-sm transition hover:border-calpoly-gold hover:shadow ${
+                              selectedRiskKey === riskKey
+                                ? "border-calpoly-gold ring-2 ring-calpoly-gold/30"
+                                : "border-gray-200"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="min-w-0 flex-1 text-sm font-medium text-gray-800 line-clamp-2">
+                                {risk.risk_description || "Risk item"}
+                              </p>
+                              <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${getResidualTone(residual)}`}>
+                                {residual ?? "--"}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                              {normalizeKey(risk.owner, "—")} · {normalizeKey(risk.unit, "—")}
+                            </p>
+                          </button>
+                        );
+                      })}
+                      {boardLanes[lane.key].length === 0 && (
+                        <p className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-4 text-center text-xs text-gray-400">
+                          No risks
                         </p>
-                        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">
-                          {displayValue}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+          </section>
+          <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-calpoly-green">Risk Detail</h3>
+            {!selectedRisk && !loading && (
+              <p className="mt-3 text-sm text-gray-500">
+                Select a risk from the board above to view details.
+              </p>
+            )}
+            {selectedRisk && (
+              <div className="mt-4">
+                <div className="rounded-xl border border-gray-200 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {DETAIL_FIELDS.map((field) => {
+                      const rawValue = selectedRisk[field];
+                      let displayValue = formatCellValue(rawValue);
+                      if (DATE_DETAIL_FIELDS.has(field) && typeof rawValue === "string" && rawValue.trim()) {
+                        const parsed = new Date(rawValue);
+                        if (!Number.isNaN(parsed.getTime())) displayValue = parsed.toLocaleString();
+                      }
+                      return (
+                        <div
+                          key={field}
+                          className={`rounded-lg bg-gray-50 p-3 ${LONG_TEXT_DETAIL_FIELDS.has(field) ? "sm:col-span-2 lg:col-span-4" : ""}`}
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            {formatFieldLabel(field)}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">
+                            {displayValue}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {/* Analysis tab */}
+      {activeTab === "analysis" && (
+        <section className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h3 className="text-lg font-semibold text-calpoly-green">Status Mix</h3>
+              <p className="mt-1 text-xs text-gray-500">Distribution by status</p>
+              <div className="mt-4 space-y-3">
+                {analytics.statusCounts.map(([status, count]) => {
+                  const width = approvedRisks.length
+                    ? Math.round((count / approvedRisks.length) * 100)
+                    : 0;
+                  return (
+                    <div key={status}>
+                      <div className="flex items-center justify-between text-sm text-gray-600">
+                        <span>{status}</span>
+                        <span>{count} ({width}%)</span>
+                      </div>
+                      <div className="mt-1 h-2 rounded-full bg-gray-200">
+                        <div className="h-2 rounded-full bg-calpoly-green" style={{ width: `${width}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {!loading && analytics.statusCounts.length === 0 && (
+                  <p className="text-sm text-gray-500">No status data.</p>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h3 className="text-lg font-semibold text-calpoly-green">Residual Rating Spread</h3>
+              <p className="mt-1 text-xs text-gray-500">Score distribution (0–5 to 21+)</p>
+              <div className="mt-4 space-y-3">
+                {analytics.bins.map((bin) => {
+                  const width = approvedRisks.length
+                    ? Math.round((bin.count / approvedRisks.length) * 100)
+                    : 0;
+                  return (
+                    <div key={bin.label}>
+                      <div className="flex items-center justify-between text-sm text-gray-600">
+                        <span>{bin.label}</span>
+                        <span>{bin.count} ({width}%)</span>
+                      </div>
+                      <div className="mt-1 h-2 rounded-full bg-gray-200">
+                        <div className="h-2 rounded-full bg-calpoly-gold" style={{ width: `${width}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {!loading && analytics.bins.length === 0 && (
+                  <p className="text-sm text-gray-500">No rating data.</p>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h3 className="text-lg font-semibold text-calpoly-green">Category Concentration</h3>
+              <p className="mt-1 text-xs text-gray-500">Top categories</p>
+              <div className="mt-4 space-y-2">
+                {analytics.categoryCounts.map(([category, count], index) => (
+                  <div
+                    key={`${category}-${index}`}
+                    className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
+                  >
+                    <span className="text-sm font-medium text-gray-700">{category}</span>
+                    <span className="text-sm font-semibold text-calpoly-green">{count}</span>
+                  </div>
+                ))}
+                {!loading && analytics.categoryCounts.length === 0 && (
+                  <p className="text-sm text-gray-500">No category data.</p>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h3 className="text-lg font-semibold text-calpoly-green">Top Units</h3>
+              <p className="mt-1 text-xs text-gray-500">Risk count by unit</p>
+              <div className="mt-4 space-y-2">
+                {analytics.unitCounts.map(([unit, count]) => (
+                  <div
+                    key={unit}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2"
+                  >
+                    <span className="text-sm text-gray-700">{unit}</span>
+                    <span className="text-sm font-semibold text-calpoly-green">{count} risks</span>
+                  </div>
+                ))}
+                {!loading && analytics.unitCounts.length === 0 && (
+                  <p className="text-sm text-gray-500">No unit data.</p>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
-      </>
       )}
 
       {/* By Unit tab */}
