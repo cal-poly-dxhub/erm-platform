@@ -83,7 +83,12 @@ export const getOidcConfiguration = async () => {
     const issuer = new URL(
       `https://cognito-idp.${getRegion()}.amazonaws.com/${getUserPoolId()}`
     );
-    cachedConfig = oidc.discovery(issuer, getClientId(), getClientSecret());
+    cachedConfig = oidc.discovery(
+      issuer,
+      getClientId(),
+      undefined,
+      oidc.ClientSecretBasic(getClientSecret())
+    );
   }
   return cachedConfig;
 };

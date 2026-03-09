@@ -58,12 +58,12 @@ const Header: React.FC<HeaderProps> = ({ onAddNew, onRefresh, isRefreshing = fal
           <User className="w-5 h-5 mr-2" />
           My Profile
         </Link>
-        <Link
+        <a
           href="/api/auth/logout"
           className="flex items-center bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg transition duration-300 border border-gray-300"
         >
           Sign Out
-        </Link>
+        </a>
         <button
           type="button"
           onClick={onRefresh}

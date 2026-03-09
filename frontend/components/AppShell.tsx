@@ -227,10 +227,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <User className="h-5 w-5 shrink-0" />
                 My Profile
               </Link>
-              <Link href="/api/auth/logout" className={navLink}>
+              <a href="/api/auth/logout" className={navLink}>
                 <LogOut className="h-5 w-5 shrink-0" />
                 Sign Out
-              </Link>
+              </a>
             </div>
           </div>
         </nav>

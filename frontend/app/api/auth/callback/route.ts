@@ -46,16 +46,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const config = await getOidcConfiguration();
+    const callbackUrl = new URL(authFlow.redirectUri);
+    callbackUrl.search = request.nextUrl.search;
     const tokens = await oidc.authorizationCodeGrant(
       config,
-      new URL(request.url),
+      callbackUrl,
       {
         expectedState: authFlow.state,
         expectedNonce: authFlow.nonce,
         pkceCodeVerifier: authFlow.codeVerifier,
-      },
-      {
-        redirect_uri: authFlow.redirectUri,
       }
     );
 
@@ -106,9 +105,37 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Cognito callback failed:", error);
-    const response = NextResponse.redirect(
-      new URL("/?auth_error=callback", getAppOrigin(request))
-    );
+
+    const errorWithFields = error as {
+      code?: string;
+      error?: string;
+      error_description?: string;
+      status?: number;
+      cause?: { error?: string; error_description?: string };
+    };
+
+    const authError =
+      errorWithFields.error ||
+      errorWithFields.cause?.error ||
+      errorWithFields.code ||
+      "callback";
+    const authErrorDescription =
+      errorWithFields.error_description ||
+      errorWithFields.cause?.error_description ||
+      (typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message?: unknown }).message ?? "")
+        : "");
+
+    const destination = new URL("/", getAppOrigin(request));
+    destination.searchParams.set("auth_error", authError);
+    if (authErrorDescription) {
+      destination.searchParams.set("auth_error_description", authErrorDescription);
+    }
+    if (typeof errorWithFields.status === "number") {
+      destination.searchParams.set("auth_status", String(errorWithFields.status));
+    }
+
+    const response = NextResponse.redirect(destination);
     clearAuthFlow(response);
     return response;
   }

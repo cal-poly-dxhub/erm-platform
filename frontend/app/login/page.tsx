@@ -37,12 +37,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </p>
 
         <div className="mt-6 flex flex-col gap-3">
-          <Link
+          <a
             href={`/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`}
             className="inline-flex items-center justify-center rounded-lg bg-calpoly-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
           >
             Sign in with Cognito
-          </Link>
+          </a>
           <Link
             href="/"
             className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
