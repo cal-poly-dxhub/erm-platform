@@ -12,6 +12,7 @@ export interface MitigationStrategyRequest {
   baseline_likelihood: number | string;
   baseline_impact: number | string;
   baseline_score: number | string;
+  mitigation_strategies?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -89,6 +90,9 @@ export async function POST(request: NextRequest) {
         baseline_likelihood: Number(body.baseline_likelihood),
         baseline_impact: Number(body.baseline_impact),
         baseline_score: Number(body.baseline_score),
+        ...(body.mitigation_strategies && body.mitigation_strategies.trim()
+          ? { mitigation_strategies: body.mitigation_strategies }
+          : {}),
       }),
     });
 
@@ -113,21 +117,23 @@ export async function POST(request: NextRequest) {
 
     console.log("Parsed Lambda response:", result);
 
-    // Extract residual_risk from the result (Lambda uses updated_scores)
-    let residualRisk = {};
-    if (result.residual_risk) {
-      residualRisk = result.residual_risk;
-    } else if (result.updated_scores) {
-      // Map updated_scores to residual_risk format
-      residualRisk = {
-        updated_likelihood: result.updated_scores.updated_likelihood,
-        updated_impact: result.updated_scores.updated_impact,
-      };
-    }
+    const updatedScores =
+      result.updated_scores && typeof result.updated_scores === "object"
+        ? result.updated_scores
+        : result.residual_risk && typeof result.residual_risk === "object"
+          ? result.residual_risk
+          : {};
+
+    const mitigationText =
+      typeof result.mitigation_strategies === "string"
+        ? result.mitigation_strategies
+        : "";
 
     return NextResponse.json({
-      strategies: result.strategies || [],
-      residual_risk: residualRisk,
+      mitigation_strategies: mitigationText,
+      updated_scores: updatedScores,
+      // Backward compatibility for any callers still reading residual_risk.
+      residual_risk: updatedScores,
     });
   } catch (error) {
     console.error("Error calling Mitigation Lambda API:", error);

@@ -1,28 +1,11 @@
 // Client-side utility for calling the mitigation strategies API
 // The actual Lambda API call is handled by the Next.js API route at /api/mitigation-strategies
 
-export interface MitigationStrategy {
-  title: string;
-  type: "Preventative" | "Detective" | "Corrective";
-  description: string;
-  scores: {
-    financial: "Significant Effect" | "Moderate Effect" | "Little to No Effect";
-    legal: "Significant Effect" | "Moderate Effect" | "Little to No Effect";
-    reputation: "Significant Effect" | "Moderate Effect" | "Little to No Effect";
-    safety: "Significant Effect" | "Moderate Effect" | "Little to No Effect";
-    service: "Significant Effect" | "Moderate Effect" | "Little to No Effect";
-    workforce: "Significant Effect" | "Moderate Effect" | "Little to No Effect";
-  };
-  likelihood_rating: "Decreases Likelihood" | "Does Not Change" | "Increases Likelihood";
-  urgency: "Immediate" | "Urgent" | "Low";
-  calculated_effectiveness_score?: number;
-}
-
 export interface MitigationStrategiesResponse {
-  strategies: MitigationStrategy[];
-  residual_risk: {
-    updated_likelihood: number;
-    updated_impact: number;
+  mitigation_strategies: string;
+  updated_scores: {
+    updated_likelihood?: number;
+    updated_impact?: number;
   };
 }
 
@@ -35,6 +18,7 @@ export interface MitigationStrategyRequest {
   baseline_likelihood: number | string;
   baseline_impact: number | string;
   baseline_score: number | string;
+  mitigation_strategies?: string;
 }
 
 export const generateMitigationStrategies = async (
@@ -45,7 +29,8 @@ export const generateMitigationStrategies = async (
   category: string,
   baselineLikelihood: number | string,
   baselineImpact: number | string,
-  baselineScore: number | string
+  baselineScore: number | string,
+  mitigationStrategies?: string
 ): Promise<MitigationStrategiesResponse> => {
   if (!riskTitle || !department || !riskDescription || !currentControls || !category) {
     throw new Error("Please provide all required fields for mitigation strategy generation");
@@ -61,6 +46,9 @@ export const generateMitigationStrategies = async (
     baseline_impact: baselineImpact,
     baseline_score: baselineScore,
   };
+  if (mitigationStrategies && mitigationStrategies.trim()) {
+    payload.mitigation_strategies = mitigationStrategies;
+  }
 
   console.log("Sending payload to API:", JSON.stringify(payload, null, 2));
 
@@ -91,9 +79,20 @@ export const generateMitigationStrategies = async (
     const data = await response.json();
     console.log("Mitigation API response:", data);
 
+    const mitigationText =
+      typeof data.mitigation_strategies === "string"
+        ? data.mitigation_strategies
+        : "";
+    const updatedScores =
+      data.updated_scores && typeof data.updated_scores === "object"
+        ? data.updated_scores
+        : data.residual_risk && typeof data.residual_risk === "object"
+          ? data.residual_risk
+          : {};
+
     return {
-      strategies: data.strategies || [],
-      residual_risk: data.residual_risk || {},
+      mitigation_strategies: mitigationText,
+      updated_scores: updatedScores,
     };
   } catch (error) {
     if (error instanceof Error) {

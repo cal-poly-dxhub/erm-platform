@@ -14,7 +14,6 @@ import { generateMitigationSteps } from "@/utils/gemini";
 import { assessRisk } from "@/utils/lambdaApi";
 import {
   generateMitigationStrategies,
-  MitigationStrategy,
 } from "@/utils/mitigationApi";
 import { Risk, RiskData } from "@/types";
 
@@ -95,7 +94,6 @@ const RiskModal: React.FC<RiskModalProps> = ({
   const [aiSuggestion, setAiSuggestion] =
     useState<ReturnType<typeof analyzeTextForSuggestions>>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [mitigationStrategies, setMitigationStrategies] = useState<MitigationStrategy[]>([]);
   const [lambdaSuggestion, setLambdaSuggestion] = useState<{
     category?: string;
     likelihood?: number;
@@ -106,6 +104,9 @@ const RiskModal: React.FC<RiskModalProps> = ({
   const [isLoadingLambda, setIsLoadingLambda] = useState(false);
   const [lambdaError, setLambdaError] = useState<string | null>(null);
   const lambdaCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const mitigationCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMitigationSignatureRef = useRef<string | null>(null);
+  const skipNextMitigationAutoRecalcRef = useRef(false);
   
   const [baselineData, setBaselineData] = useState<RiskData>({
     score: "-",
@@ -118,6 +119,8 @@ const RiskModal: React.FC<RiskModalProps> = ({
     response: "-",
   });
   const [uiMessage, setUiMessage] = useState<string | null>(null);
+  const [mitigationRecalcEnabled, setMitigationRecalcEnabled] = useState(false);
+  const [isRecalculatingAdditionalControls, setIsRecalculatingAdditionalControls] = useState(false);
 
   useEffect(() => {
     if (risk) {
@@ -189,6 +192,10 @@ const RiskModal: React.FC<RiskModalProps> = ({
     setLambdaSuggestion(null);
     setLambdaError(null);
     setUiMessage(null);
+    setMitigationRecalcEnabled(false);
+    setIsRecalculatingAdditionalControls(false);
+    lastMitigationSignatureRef.current = null;
+    skipNextMitigationAutoRecalcRef.current = false;
   }, [risk, isOpen]);
 
   // Pre-fill owner with current user's Cognito email when opening for a new risk
@@ -374,20 +381,50 @@ const RiskModal: React.FC<RiskModalProps> = ({
     handleChange(field, value);
   };
 
-  const handleGenerateMitigation = async () => {
+  const buildMitigationSignature = (strategyOverride?: string): string => {
+    const baselineScore = baselineData.score === "-" ? 0 : Number(baselineData.score);
+    return JSON.stringify({
+      risk_title: formData.risk.trim(),
+      department: (formData.department || formData.college || formData.unit).trim(),
+      risk_description: formData.riskAnalysis.trim(),
+      current_controls: formData.currentControls.trim(),
+      category: formData.riskCategory.trim(),
+      baseline_likelihood: String(formData.likelihood).trim(),
+      baseline_impact: String(formData.impact).trim(),
+      baseline_score: baselineScore,
+      strategy: (strategyOverride ?? formData.additionalControls).trim(),
+    });
+  };
+
+  const hasMitigationRequiredFields = (): boolean => {
+    const baselineScore = baselineData.score === "-" ? 0 : Number(baselineData.score);
+    return Boolean(
+      formData.risk.trim() &&
+      (formData.department || formData.college || formData.unit).trim() &&
+      formData.riskAnalysis.trim() &&
+      formData.currentControls.trim() &&
+      formData.riskCategory.trim() &&
+      String(formData.likelihood).trim() &&
+      String(formData.impact).trim() &&
+      Number.isFinite(baselineScore)
+    );
+  };
+
+  const handleGenerateMitigation = async (opts?: { silent?: boolean; includeMitigationStrategies?: boolean }) => {
     if (!formData.risk || !formData.riskAnalysis || !formData.currentControls || !formData.riskCategory) {
-      setUiMessage("Please fill in Risk, Analysis, Controls, and Category first.");
+      if (!opts?.silent) setUiMessage("Please fill in Risk, Analysis, Controls, and Category first.");
       return;
     }
     if (!formData.likelihood || !formData.impact) {
-      setUiMessage("Please set baseline Likelihood and Impact first.");
+      if (!opts?.silent) setUiMessage("Please set baseline Likelihood and Impact first.");
       return;
     }
 
     setIsGenerating(true);
-    setUiMessage(null);
+    if (!opts?.silent) setUiMessage(null);
     try {
       const baselineScore = baselineData.score === "-" ? 0 : Number(baselineData.score);
+      lastMitigationSignatureRef.current = buildMitigationSignature();
       const response = await generateMitigationStrategies(
         formData.risk,
         formData.department || formData.college || formData.unit,
@@ -396,43 +433,99 @@ const RiskModal: React.FC<RiskModalProps> = ({
         formData.riskCategory,
         formData.likelihood,
         formData.impact,
-        baselineScore
+        baselineScore,
+        opts?.includeMitigationStrategies ? formData.additionalControls : undefined
       );
-      const strategies = response.strategies || [];
-      setMitigationStrategies(strategies);
 
-      if (strategies.length === 0) {
-        setUiMessage("No strategies were generated.");
-        return;
+      const mitigationText = (response.mitigation_strategies || "").trim();
+      if (mitigationText) {
+        // Keep textbox synced to lambda response while preventing recursive re-calls.
+        lastMitigationSignatureRef.current = buildMitigationSignature(mitigationText);
+        skipNextMitigationAutoRecalcRef.current = true;
+        handleChange("additionalControls", mitigationText);
+      } else if (!opts?.includeMitigationStrategies && !opts?.silent) {
+        setUiMessage("No mitigation strategies were returned.");
       }
 
-      const strategiesText = strategies
-        .map((strategy, index) => {
-          const typeLabel = strategy.type === "Preventative" ? "Preventative" : 
-                           strategy.type === "Detective" ? "Detective" : "Corrective";
-          return `${index + 1}. [${typeLabel}] ${strategy.title}\n   ${strategy.description}\n   Urgency: ${strategy.urgency}`;
-        })
-        .join("\n\n");
-
-      handleChange("additionalControls", strategiesText);
-
-      if (response.residual_risk) {
-        if (response.residual_risk.updated_likelihood) {
-          setFormData((prev) => ({ ...prev, updatedLikelihood: String(response.residual_risk.updated_likelihood) }));
+      if (response.updated_scores) {
+        if (response.updated_scores.updated_likelihood !== undefined && response.updated_scores.updated_likelihood !== null) {
+          setFormData((prev) => ({ ...prev, updatedLikelihood: String(response.updated_scores.updated_likelihood) }));
         }
-        if (response.residual_risk.updated_impact) {
-          setFormData((prev) => ({ ...prev, updatedImpact: String(response.residual_risk.updated_impact) }));
+        if (response.updated_scores.updated_impact !== undefined && response.updated_scores.updated_impact !== null) {
+          setFormData((prev) => ({ ...prev, updatedImpact: String(response.updated_scores.updated_impact) }));
         }
       }
     } catch (error) {
       console.error("Error generating strategies:", error);
-      setUiMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      if (!opts?.silent) {
+        setUiMessage(
+          `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+      }
     } finally {
       setIsGenerating(false);
+      if (opts?.includeMitigationStrategies) {
+        setIsRecalculatingAdditionalControls(false);
+      }
     }
   };
+
+  // Re-score after user has opted in via "Suggest Mitigation Steps".
+  // Any change to Additional Control Measures re-calls mitigation lambda.
+  useEffect(() => {
+    if (!isOpen || readOnly) {
+      setIsRecalculatingAdditionalControls(false);
+      return;
+    }
+    if (!mitigationRecalcEnabled) {
+      setIsRecalculatingAdditionalControls(false);
+      return;
+    }
+    if (mitigationCallTimeoutRef.current) clearTimeout(mitigationCallTimeoutRef.current);
+    if (!hasMitigationRequiredFields()) {
+      setIsRecalculatingAdditionalControls(false);
+      return;
+    }
+    if (!formData.additionalControls.trim()) {
+      setIsRecalculatingAdditionalControls(false);
+      return;
+    }
+    if (skipNextMitigationAutoRecalcRef.current) {
+      skipNextMitigationAutoRecalcRef.current = false;
+      setIsRecalculatingAdditionalControls(false);
+      return;
+    }
+
+    const signature = buildMitigationSignature();
+    if (signature === lastMitigationSignatureRef.current) {
+      setIsRecalculatingAdditionalControls(false);
+      return;
+    }
+
+    setIsRecalculatingAdditionalControls(true);
+    mitigationCallTimeoutRef.current = setTimeout(() => {
+      void handleGenerateMitigation({ silent: true, includeMitigationStrategies: true });
+    }, 1000);
+
+    return () => {
+      if (mitigationCallTimeoutRef.current) clearTimeout(mitigationCallTimeoutRef.current);
+    };
+  }, [
+    isOpen,
+    readOnly,
+    mitigationRecalcEnabled,
+    formData.risk,
+    formData.department,
+    formData.college,
+    formData.unit,
+    formData.riskAnalysis,
+    formData.currentControls,
+    formData.riskCategory,
+    formData.likelihood,
+    formData.impact,
+    formData.additionalControls,
+    baselineData.score,
+  ]);
 
   const impactTooltipContent = `
     <div>
@@ -791,7 +884,10 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 </h4>
                 <button
                   type="button"
-                  onClick={handleGenerateMitigation}
+                  onClick={() => {
+                    setMitigationRecalcEnabled(true);
+                    void handleGenerateMitigation({ includeMitigationStrategies: false });
+                  }}
                   disabled={isGenerating}
                   className="flex items-center bg-calpoly-green hover:opacity-90 text-white text-sm font-bold py-2 px-3 rounded-lg transition duration-300 disabled:opacity-50"
                 >
@@ -811,6 +907,9 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
                 <p className="text-xs text-gray-500 mt-1">You can edit the AI generated strategies above.</p>
+                {isRecalculatingAdditionalControls && (
+                  <p className="text-xs text-blue-600 mt-1">Analyzing additional controls and updating scores...</p>
+                )}
               </div>
 
               <div>
