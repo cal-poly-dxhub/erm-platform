@@ -124,6 +124,11 @@ const RiskModal: React.FC<RiskModalProps> = ({
 
   useEffect(() => {
     if (risk) {
+      const isExistingRisk =
+        !!risk.id &&
+        risk.id !== "new" &&
+        String(risk.id).trim() !== "";
+      const hasExistingMitigationText = !!(risk.additionalControls || "").trim();
       setFormData({
         riskIdNo: risk.riskIdNo || "",
         orgType: risk.orgType || "college",
@@ -155,6 +160,8 @@ const RiskModal: React.FC<RiskModalProps> = ({
         isPrivate: risk.isPrivate || false,
         isAttorneyClientPrivilege: risk.isAttorneyClientPrivilege || false,
       });
+      // For Edit Risk, enable residual re-score behavior if mitigation text already exists.
+      setMitigationRecalcEnabled(isExistingRisk && hasExistingMitigationText);
     } else {
       setFormData({
         riskIdNo: "",
@@ -187,12 +194,12 @@ const RiskModal: React.FC<RiskModalProps> = ({
         isPrivate: false,
         isAttorneyClientPrivilege: false,
       });
+      setMitigationRecalcEnabled(false);
     }
     setAiSuggestion(null);
     setLambdaSuggestion(null);
     setLambdaError(null);
     setUiMessage(null);
-    setMitigationRecalcEnabled(false);
     setIsRecalculatingAdditionalControls(false);
     lastMitigationSignatureRef.current = null;
     skipNextMitigationAutoRecalcRef.current = false;
