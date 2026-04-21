@@ -450,7 +450,12 @@ const RiskModal: React.FC<RiskModalProps> = ({
         lastMitigationSignatureRef.current = buildMitigationSignature(mitigationText);
         skipNextMitigationAutoRecalcRef.current = true;
         handleChange("additionalControls", mitigationText);
-      } else if (!opts?.includeMitigationStrategies && !opts?.silent) {
+      } else if (
+        !opts?.includeMitigationStrategies &&
+        !opts?.silent &&
+        !response.updated_scores?.updated_likelihood &&
+        !response.updated_scores?.updated_impact
+      ) {
         setUiMessage("No mitigation strategies were returned.");
       }
 

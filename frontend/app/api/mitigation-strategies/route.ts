@@ -124,10 +124,30 @@ export async function POST(request: NextRequest) {
           ? result.residual_risk
           : {};
 
-    const mitigationText =
+    let mitigationText =
       typeof result.mitigation_strategies === "string"
         ? result.mitigation_strategies
         : "";
+    if (!mitigationText) {
+      if (Array.isArray(result.strategies)) {
+        mitigationText = result.strategies
+          .map((item: unknown) => {
+            if (typeof item === "string") return item;
+            if (item && typeof item === "object") {
+              const s = item as Record<string, unknown>;
+              const title = typeof s.title === "string" ? s.title : "Strategy";
+              const description =
+                typeof s.description === "string" ? s.description : "";
+              return description ? `${title}: ${description}` : title;
+            }
+            return "";
+          })
+          .filter(Boolean)
+          .join("\n");
+      } else if (result.strategies && typeof result.strategies === "string") {
+        mitigationText = result.strategies;
+      }
+    }
 
     return NextResponse.json({
       mitigation_strategies: mitigationText,
