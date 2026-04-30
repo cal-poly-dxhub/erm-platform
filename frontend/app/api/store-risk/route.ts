@@ -15,6 +15,10 @@ function toStr(value: unknown): string {
   return String(value).trim();
 }
 
+function toNormalizedKey(value: unknown): string {
+  return toStr(value).toLowerCase();
+}
+
 function toBool(value: unknown): boolean {
   if (typeof value === "boolean") return value;
   if (value === null || value === undefined) return false;
@@ -53,8 +57,9 @@ function buildLambdaBody(body: Record<string, unknown>) {
     action: actionValue,
     risk_id: toStr(body.riskIdNo ?? body.risk_id ?? ""),
     unit: unitValue,
-    department: toStr(body.department ?? ""),
-    owner: toStr(body.owner ?? ""),
+    // Normalize commonly filtered free-text fields for consistent matching.
+    department: toNormalizedKey(body.department ?? ""),
+    owner: toNormalizedKey(body.owner ?? ""),
     risk_description: toStr(body.risk ?? body.risk_description ?? ""),
     risk_analysis: toStr(body.riskAnalysis ?? body.risk_analysis ?? ""),
     category: toStr(body.riskCategory ?? body.category ?? ""),

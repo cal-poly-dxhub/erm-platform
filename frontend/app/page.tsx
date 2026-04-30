@@ -338,6 +338,8 @@ export default function Home() {
   );
 
   const filteredRisks = useMemo(() => {
+    const normalize = (value: string | null | undefined) =>
+      (value || "").trim().toLowerCase();
     return risks.filter((risk) => {
       const q = searchQuery.trim().toLowerCase();
       if (q) {
@@ -355,10 +357,10 @@ export default function Home() {
           .toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-      if (statusFilter && (risk.status || "").trim() !== statusFilter) {
+      if (statusFilter && normalize(risk.status) !== normalize(statusFilter)) {
         return false;
       }
-      if (unitFilter && (risk.collegeUnit || "").trim() !== unitFilter) {
+      if (unitFilter && normalize(risk.collegeUnit) !== normalize(unitFilter)) {
         return false;
       }
       return true;
