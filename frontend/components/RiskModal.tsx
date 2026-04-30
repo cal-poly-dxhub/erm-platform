@@ -353,14 +353,21 @@ const RiskModal: React.FC<RiskModalProps> = ({
     e.preventDefault();
     if (readOnly) return;
     const idStr = risk?.id ?? "";
-    const isNewRisk =
-      idStr === "new" ||
-      idStr === "" ||
-      !/^\d+$/.test(String(idStr)) ||
-      Number(idStr) <= 0;
+    const hasExistingRiskRef =
+      idStr !== "new" &&
+      String(idStr).trim() !== "";
+    const numericId =
+      /^\d+$/.test(String(idStr)) && Number(idStr) > 0
+        ? Number(idStr)
+        : null;
+    if (hasExistingRiskRef && numericId === null) {
+      setUiMessage("This risk is missing a valid database ID, so edits cannot be saved from this view.");
+      return;
+    }
+    const isNewRisk = !hasExistingRiskRef;
     const payload = {
       ...formData,
-      id: isNewRisk ? undefined : risk?.id,
+      id: isNewRisk ? undefined : numericId,
       action: isNewRisk ? "create" : "update",
       approvalStatus: risk?.approvalStatus || "pending",
       riskIdNo: formData.riskIdNo || risk?.riskIdNo || "",
@@ -377,7 +384,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
         setUiMessage(data?.error || `Failed to save risk: ${res.status}`);
         return;
       }
-      onSave({ ...formData, id: payload.id } as Risk);
+      onSave({ ...formData, id: payload.id != null ? String(payload.id) : undefined } as Risk);
       onClose();
     } catch (err) {
       setUiMessage(err instanceof Error ? err.message : "Failed to save risk");

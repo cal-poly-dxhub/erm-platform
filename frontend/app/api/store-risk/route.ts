@@ -114,6 +114,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const lambdaBody = buildLambdaBody(body);
 
+    // Never allow "update" requests to proceed without a real DB id.
+    // This prevents accidental creation of a new risk when editing.
+    if (lambdaBody.action === "update" && !("id" in lambdaBody)) {
+      return NextResponse.json(
+        { error: "Update requires a valid database id. Refusing to create a new risk." },
+        { status: 400 }
+      );
+    }
+
     console.log("sending to Lambda:", JSON.stringify(lambdaBody, null, 2)); // ADD THIS
 
 
