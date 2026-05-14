@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession } from "@/lib/auth/session";
 
 const DASHBOARD_API_URL =
-  process.env.ERM_DASHBOARD_RESULTS_URL ||
-  "https://0r2exr1sqj.execute-api.us-east-2.amazonaws.com/dev/erm-dashboard-results";
+  process.env.ERM_DASHBOARD_RESULTS_URL || "";
 
 const ADMIN_GROUP = "admin";
 
