@@ -4,7 +4,6 @@ import { X, Sparkles, HelpCircle, ShieldAlert, Lock } from "lucide-react";
 import {
   likelihoods,
   impacts,
-  riskCategories,
   statuses,
   ratingColors,
 } from "@/utils/constants";
@@ -16,6 +15,27 @@ import {
   generateMitigationStrategies,
 } from "@/utils/mitigationApi";
 import { Risk, RiskData } from "@/types";
+
+// NEW: Compact and integrated Risk Categories list based on pilot feedback
+const updatedRiskCategories = [
+  "Academic Affairs & Enrollment",
+  "Athletics & NCAA",
+  "Auxiliary & Business Operations",
+  "Campus Safety & Emergency Management",
+  "Data Privacy & Artificial Intelligence",
+  "Environmental Impact & Compliance", // EHS Integration
+  "Facilities & Construction",
+  "Financial Management & Taxation",
+  "Fire & Life Safety", // EHS Integration
+  "Human Resources & Employment",
+  "Information Technology & Cybersecurity",
+  "Legal & Regulatory Compliance",
+  "Occupational Health & Safety", // EHS Integration (Covers Illness & Injury)
+  "Research Compliance & International Activities",
+  "Strategic & Crisis Communications",
+  "Student Life & Wellness",
+  "Other"
+];
 
 interface RiskModalProps {
   isOpen: boolean;
@@ -567,6 +587,15 @@ const RiskModal: React.FC<RiskModalProps> = ({
     </div>
   `;
 
+  // NEW: Risk Description Tooltip
+  const riskDescTooltipContent = `
+    <div class="w-64 p-2 text-xs">
+      <strong class="block text-calpoly-gold mb-1">What to include:</strong>
+      <p class="mt-1 text-white">Describe the specific risk event, its potential cause, and the direct consequence or impact on the University.</p>
+      <p class="mt-2 text-gray-300"><em>Example: "Failure to properly store lab chemicals (cause) could lead to an accidental spill (event) resulting in injury or regulatory fines (consequence)."</em></p>
+    </div>
+  `;
+
   // When modal is open, lock body scroll so no white strip appears above the backdrop
   useEffect(() => {
     if (!isOpen) return;
@@ -754,10 +783,32 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
+
+              {/* MOVED CATEGORY: Now in Section 1 */}
+              <div className="col-span-1 md:col-span-2">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Risk Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={formData.riskCategory}
+                  onChange={(e) => handleChange("riskCategory", e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+                >
+                  <option value="">Select Category</option>
+                  {updatedRiskCategories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
               
               <div className="col-span-full">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk Description <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-600 mb-1 flex items-center">
+                  Risk Description <span className="text-red-500 ml-1">*</span>
+                  <span className="tooltip ml-2">
+                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                    <span className="tooltiptext" dangerouslySetInnerHTML={{ __html: riskDescTooltipContent }} />
+                  </span>
                 </label>
                 <textarea
                   rows={3}
@@ -1008,23 +1059,6 @@ const RiskModal: React.FC<RiskModalProps> = ({
               
               <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={formData.riskCategory}
-                  onChange={(e) => handleChange("riskCategory", e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-                >
-                  <option value="">Select Category</option>
-                  {riskCategories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="col-span-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
                   Status <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -1056,7 +1090,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 )}
               </div>
 
-              {/* NEW: Departmental Risk Tolerance */}
+              {/* Departmental Risk Tolerance */}
               <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1 flex items-center">
                   Department Risk Tolerance
@@ -1079,7 +1113,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
                 </select>
               </div>
 
-              {/* Resource Requirements Buckets (Moved Here - Optional) */}
+              {/* Resource Requirements Buckets (Optional) */}
               <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-3 rounded border border-gray-200 mt-2">
                  <h5 className="col-span-full text-sm font-bold text-gray-700 border-b pb-1">
                     Resource Requirements <span className="text-xs font-normal text-gray-500">(Optional)</span>
