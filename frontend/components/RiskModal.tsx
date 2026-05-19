@@ -10,7 +10,6 @@ import {
 } from "@/utils/constants";
 import { getRiskData } from "@/utils/riskCalculations";
 import { analyzeTextForSuggestions } from "@/utils/aiSuggestions";
-import { generateMitigationSteps } from "@/utils/gemini";
 import { assessRisk } from "@/utils/lambdaApi";
 import {
   generateMitigationStrategies,
