@@ -413,9 +413,16 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTabId>("overview");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  const isSuperAdmin = user?.groups?.includes("superadmin") ?? false;
+
   const approvedRisks = useMemo(
-    () => risks.filter((r) => r.approval_status === "approved"),
-    [risks],
+    () =>
+      risks.filter(
+        (r) =>
+          r.approval_status === "approved" &&
+          (isSuperAdmin || !r.is_attorney_client_privilege),
+      ),
+    [risks, isSuperAdmin],
   );
 
   const matrixRisks = useMemo(
@@ -645,14 +652,16 @@ export default function DashboardPage() {
         "department" | "category" | "status" | "owner" | "unit"
       >,
     ) => {
-      const values = new Set<string>();
+      const seen = new Map<string, string>();
       approvedRisks.forEach((risk) => {
         const raw = risk[key];
         if (raw && raw.trim()) {
-          values.add(raw.trim());
+          const trimmed = raw.trim();
+          const lower = trimmed.toLowerCase();
+          if (!seen.has(lower)) seen.set(lower, trimmed);
         }
       });
-      return Array.from(values).sort((a, b) => a.localeCompare(b));
+      return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
     };
 
     return {
