@@ -657,10 +657,21 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <div className="mt-4 space-y-4">
+          <div className="mt-4 space-y-3">
             {isAdmin ? (
               <>
-                <div className="flex items-start justify-between gap-4">
+                <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 hover:bg-gray-100 transition">
+                  <input
+                    type="checkbox"
+                    checked={notificationPrefs.notifyNewRiskSubmitted}
+                    onChange={() =>
+                      setNotificationPrefs((prev) => ({
+                        ...prev,
+                        notifyNewRiskSubmitted: !prev.notifyNewRiskSubmitted,
+                      }))
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-calpoly-green focus:ring-calpoly-gold"
+                  />
                   <div>
                     <p className="text-sm font-medium text-gray-900">
                       Notify me when a new risk is submitted
@@ -669,33 +680,20 @@ export default function ProfilePage() {
                       Receive a notification whenever someone submits a new risk for review.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 hover:bg-gray-100 transition">
+                  <input
+                    type="checkbox"
+                    checked={notificationPrefs.remindPendingApproval}
+                    onChange={() =>
                       setNotificationPrefs((prev) => ({
                         ...prev,
-                        notifyNewRiskSubmitted: !prev.notifyNewRiskSubmitted,
+                        remindPendingApproval: !prev.remindPendingApproval,
                       }))
                     }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                      notificationPrefs.notifyNewRiskSubmitted
-                        ? "bg-calpoly-green"
-                        : "bg-gray-300"
-                    }`}
-                    role="switch"
-                    aria-checked={notificationPrefs.notifyNewRiskSubmitted}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
-                        notificationPrefs.notifyNewRiskSubmitted
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-start justify-between gap-4">
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-calpoly-green focus:ring-calpoly-gold"
+                  />
                   <div>
                     <p className="text-sm font-medium text-gray-900">
                       Remind me of risks pending approval for 3+ days
@@ -704,33 +702,20 @@ export default function ProfilePage() {
                       Get reminders when risks assigned to you have been waiting for approval.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 hover:bg-gray-100 transition">
+                  <input
+                    type="checkbox"
+                    checked={notificationPrefs.weeklyDigestNoProgress}
+                    onChange={() =>
                       setNotificationPrefs((prev) => ({
                         ...prev,
-                        remindPendingApproval: !prev.remindPendingApproval,
+                        weeklyDigestNoProgress: !prev.weeklyDigestNoProgress,
                       }))
                     }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                      notificationPrefs.remindPendingApproval
-                        ? "bg-calpoly-green"
-                        : "bg-gray-300"
-                    }`}
-                    role="switch"
-                    aria-checked={notificationPrefs.remindPendingApproval}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
-                        notificationPrefs.remindPendingApproval
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-start justify-between gap-4">
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-calpoly-green focus:ring-calpoly-gold"
+                  />
                   <div>
                     <p className="text-sm font-medium text-gray-900">
                       Weekly digest of risks with no progress
@@ -739,34 +724,21 @@ export default function ProfilePage() {
                       Receive a weekly summary of risks that have not moved forward recently.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setNotificationPrefs((prev) => ({
-                        ...prev,
-                        weeklyDigestNoProgress: !prev.weeklyDigestNoProgress,
-                      }))
-                    }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                      notificationPrefs.weeklyDigestNoProgress
-                        ? "bg-calpoly-green"
-                        : "bg-gray-300"
-                    }`}
-                    role="switch"
-                    aria-checked={notificationPrefs.weeklyDigestNoProgress}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
-                        notificationPrefs.weeklyDigestNoProgress
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
+                </label>
               </>
             ) : (
-              <div className="flex items-start justify-between gap-4">
+              <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 hover:bg-gray-100 transition">
+                <input
+                  type="checkbox"
+                  checked={notificationPrefs.notifyRiskDecision}
+                  onChange={() =>
+                    setNotificationPrefs((prev) => ({
+                      ...prev,
+                      notifyRiskDecision: !prev.notifyRiskDecision,
+                    }))
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-calpoly-green focus:ring-calpoly-gold"
+                />
                 <div>
                   <p className="text-sm font-medium text-gray-900">
                     Notify me when my submitted risk is approved or rejected
@@ -775,31 +747,7 @@ export default function ProfilePage() {
                     Receive a notification when an admin approves or rejects your risk.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNotificationPrefs((prev) => ({
-                      ...prev,
-                      notifyRiskDecision: !prev.notifyRiskDecision,
-                    }))
-                  }
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                    notificationPrefs.notifyRiskDecision
-                      ? "bg-calpoly-green"
-                      : "bg-gray-300"
-                  }`}
-                  role="switch"
-                  aria-checked={notificationPrefs.notifyRiskDecision}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
-                      notificationPrefs.notifyRiskDecision
-                        ? "translate-x-6"
-                        : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
+              </label>
             )}
           </div>
 
