@@ -99,6 +99,7 @@ export const riskCategories = [
   "Policies/Procedures Regarding Minors on Campus",
   "Academic Quality and Standards",
   "Oversight of Student Organizations",
+  "Other",
 ];
 
 export const statuses = [

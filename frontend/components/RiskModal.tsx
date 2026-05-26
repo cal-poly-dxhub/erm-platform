@@ -47,15 +47,17 @@ const RiskModal: React.FC<RiskModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     riskIdNo: "",
-    
+
     // Organization Scope
-    orgType: "college", 
+    orgType: "college",
     college: "",
     unit: "",
     department: "",
     isCollegeWide: false,
-    
+
     owner: "",
+    riskCategory: "",
+    riskCategoryOther: "",
     risk: "",
     riskAnalysis: "",
     currentControls: "",
@@ -64,27 +66,26 @@ const RiskModal: React.FC<RiskModalProps> = ({
     additionalControls: "",
     updatedLikelihood: "",
     updatedImpact: "",
-    
+
     // Status Logic
     status: "",
     statusTolerance: "",
     statusPoc: "",
-    riskCategory: "",
-    
+
     // NEW: Risk Tolerance Logic
     departmentRiskTolerance: "",
-    
+
     // Resource Buckets (Section 4 - Optional)
     resourceInternalFTE: "",
     resourceExternal: "",
     resourceFunding: "",
-    resourcesNeeded: "", 
-    
+    resourcesNeeded: "",
+
     // Comments
     leadershipComments: "",
     ermComments: "",
-    ehsComments: "", 
-    
+    ehsComments: "",
+
     // Privacy Flags
     isPrivate: false,
     isAttorneyClientPrivilege: false,
@@ -128,6 +129,8 @@ const RiskModal: React.FC<RiskModalProps> = ({
         risk.id !== "new" &&
         String(risk.id).trim() !== "";
       const hasExistingMitigationText = !!(risk.additionalControls || "").trim();
+      const incomingCategory = risk.riskCategory || "";
+      const isOtherCategory = incomingCategory !== "" && !riskCategories.slice(0, -1).includes(incomingCategory);
       setFormData({
         riskIdNo: risk.riskIdNo || "",
         orgType: risk.orgType || "college",
@@ -136,6 +139,8 @@ const RiskModal: React.FC<RiskModalProps> = ({
         department: risk.department || "",
         isCollegeWide: risk.isCollegeWide || false,
         owner: risk.owner || "",
+        riskCategory: isOtherCategory ? "Other" : incomingCategory,
+        riskCategoryOther: isOtherCategory ? incomingCategory : "",
         risk: risk.risk || "",
         riskAnalysis: risk.riskAnalysis || "",
         currentControls: risk.currentControls || "",
@@ -147,8 +152,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
         status: risk.status || "",
         statusTolerance: risk.statusTolerance || "",
         statusPoc: risk.statusPoc || "",
-        riskCategory: risk.riskCategory || "",
-        departmentRiskTolerance: risk.departmentRiskTolerance || "", // Hydrate new field
+        departmentRiskTolerance: risk.departmentRiskTolerance || "",
         resourceInternalFTE: risk.resourceInternalFTE || "",
         resourceExternal: risk.resourceExternal || "",
         resourceFunding: risk.resourceFunding || "",
@@ -170,6 +174,8 @@ const RiskModal: React.FC<RiskModalProps> = ({
         department: "",
         isCollegeWide: false,
         owner: "",
+        riskCategory: "",
+        riskCategoryOther: "",
         risk: "",
         riskAnalysis: "",
         currentControls: "",
@@ -181,8 +187,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
         status: "",
         statusTolerance: "",
         statusPoc: "",
-        riskCategory: "",
-        departmentRiskTolerance: "", // Reset new field
+        departmentRiskTolerance: "",
         resourceInternalFTE: "",
         resourceExternal: "",
         resourceFunding: "",
@@ -364,8 +369,13 @@ const RiskModal: React.FC<RiskModalProps> = ({
       return;
     }
     const isNewRisk = !hasExistingRiskRef;
+    const resolvedCategory =
+      formData.riskCategory === "Other"
+        ? formData.riskCategoryOther.trim() || "Other"
+        : formData.riskCategory;
     const payload = {
       ...formData,
+      riskCategory: resolvedCategory,
       id: isNewRisk ? undefined : numericId,
       action: isNewRisk ? "create" : "update",
       approvalStatus: risk?.approvalStatus || "pending",
@@ -383,7 +393,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
         setUiMessage(data?.error || `Failed to save risk: ${res.status}`);
         return;
       }
-      onSave({ ...formData, id: payload.id != null ? String(payload.id) : undefined } as Risk);
+      onSave({ ...formData, riskCategory: resolvedCategory, id: payload.id != null ? String(payload.id) : undefined } as Risk);
       onClose();
     } catch (err) {
       setUiMessage(err instanceof Error ? err.message : "Failed to save risk");
@@ -394,6 +404,11 @@ const RiskModal: React.FC<RiskModalProps> = ({
     handleChange(field, value);
   };
 
+  const resolvedCategory =
+    formData.riskCategory === "Other"
+      ? formData.riskCategoryOther.trim() || "Other"
+      : formData.riskCategory;
+
   const buildMitigationSignature = (strategyOverride?: string): string => {
     const baselineScore = baselineData.score === "-" ? 0 : Number(baselineData.score);
     return JSON.stringify({
@@ -401,7 +416,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
       department: (formData.department || formData.college || formData.unit).trim(),
       risk_description: formData.riskAnalysis.trim(),
       current_controls: formData.currentControls.trim(),
-      category: formData.riskCategory.trim(),
+      category: resolvedCategory.trim(),
       baseline_likelihood: String(formData.likelihood).trim(),
       baseline_impact: String(formData.impact).trim(),
       baseline_score: baselineScore,
@@ -416,7 +431,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
       (formData.department || formData.college || formData.unit).trim() &&
       formData.riskAnalysis.trim() &&
       formData.currentControls.trim() &&
-      formData.riskCategory.trim() &&
+      resolvedCategory.trim() &&
       String(formData.likelihood).trim() &&
       String(formData.impact).trim() &&
       Number.isFinite(baselineScore)
@@ -424,7 +439,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
   };
 
   const handleGenerateMitigation = async (opts?: { silent?: boolean; includeMitigationStrategies?: boolean }) => {
-    if (!formData.risk || !formData.riskAnalysis || !formData.currentControls || !formData.riskCategory) {
+    if (!formData.risk || !formData.riskAnalysis || !formData.currentControls || !resolvedCategory) {
       if (!opts?.silent) setUiMessage("Please fill in Risk, Analysis, Controls, and Category first.");
       return;
     }
@@ -443,7 +458,7 @@ const RiskModal: React.FC<RiskModalProps> = ({
         formData.department || formData.college || formData.unit,
         formData.riskAnalysis,
         formData.currentControls,
-        formData.riskCategory,
+        resolvedCategory,
         formData.likelihood,
         formData.impact,
         baselineScore,
@@ -753,11 +768,55 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-              
-              <div className="col-span-full">
+
+              <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk Description <span className="text-red-500">*</span>
+                  Risk Category <span className="text-red-500">*</span>
                 </label>
+                <select
+                  required
+                  value={formData.riskCategory}
+                  onChange={(e) => handleChange("riskCategory", e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+                >
+                  <option value="">Select Category</option>
+                  {riskCategories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                {formData.riskCategory === "Other" && (
+                  <input
+                    type="text"
+                    required
+                    value={formData.riskCategoryOther}
+                    onChange={(e) => handleChange("riskCategoryOther", e.target.value)}
+                    placeholder="Specify category…"
+                    className="mt-2 w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
+                  />
+                )}
+              </div>
+
+              <div className="col-span-full">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-600">
+                    Risk Description <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleChange(
+                        "risk",
+                        formData.risk
+                          ? formData.risk
+                          : "There is a risk that [event/situation] may occur, resulting in [negative consequence] for [affected stakeholders].",
+                      )
+                    }
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    title="Insert description template"
+                  >
+                    T Template
+                  </button>
+                </div>
                 <textarea
                   rows={3}
                   required
@@ -766,11 +825,28 @@ const RiskModal: React.FC<RiskModalProps> = ({
                   className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
                 />
               </div>
-              
+
               <div className="col-span-full">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk Analysis <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-600">
+                    Risk Analysis <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleChange(
+                        "riskAnalysis",
+                        formData.riskAnalysis
+                          ? formData.riskAnalysis
+                          : "This risk could occur because [root cause]. If realized, it would likely [describe impact]. Key drivers include [factors]. Without additional controls, the probability is [high/medium/low].",
+                      )
+                    }
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    title="Insert analysis template"
+                  >
+                    T Template
+                  </button>
+                </div>
                 <textarea
                   rows={3}
                   required
@@ -999,29 +1075,12 @@ const RiskModal: React.FC<RiskModalProps> = ({
               </div>
             </div>
 
-            {/* --- Section 4: Tracking & Categorization --- */}
+            {/* --- Section 4: Tracking & Status --- */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h4 className="col-span-full text-lg font-semibold text-calpoly-gold mb-2">
-                4. Tracking & Categorization
+                4. Tracking & Status
               </h4>
-              
-              <div className="col-span-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={formData.riskCategory}
-                  onChange={(e) => handleChange("riskCategory", e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-                >
-                  <option value="">Select Category</option>
-                  {riskCategories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              
+
               <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Status <span className="text-red-500">*</span>
