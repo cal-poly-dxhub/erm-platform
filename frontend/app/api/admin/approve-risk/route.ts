@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { hasMinRole } from "@/lib/auth/roles";
 import { readSession } from "@/lib/auth/session";
 
 const RISK_APPROVAL_API_URL = process.env.RISK_APPROVAL_API_URL || "";
-const ADMIN_GROUP = "admin";
 
 export async function POST(request: NextRequest) {
   const session = readSession(request);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!session.groups.includes(ADMIN_GROUP)) {
+  if (!hasMinRole(session.groups, "admin")) {
     return NextResponse.json(
       { error: "Forbidden. Admin access required." },
       { status: 403 },

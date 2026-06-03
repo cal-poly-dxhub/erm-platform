@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -14,9 +14,14 @@ import {
   XCircle,
   RefreshCw,
   Bell,
+  Pencil,
 } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
 import { Risk } from "@/types";
+import { hasMinRole } from "@/lib/auth/roles";
+import { organizationScopeLabel } from "@/utils/orgLabels";
+import { extractUserProfile, type UserProfile } from "@/lib/api/userProfile";
+import { formatExpertiseForDisplay } from "@/utils/expertise";
 
 type ApiRisk = {
   id?: string | number | null;
@@ -55,6 +60,34 @@ type AuthUser = {
   username?: string;
   groups: string[];
 };
+
+type UserProfile = {
+  cognito_sub: string;
+  email: string;
+  name: string;
+  college?: string | null;
+  unit?: string | null;
+  department?: string | null;
+  expertise: string[];
+  created_at?: string | null;
+};
+
+function ProfileInfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+    </div>
+  );
+}
 
 type NotificationPreferences = {
   notifyNewRiskSubmitted: boolean;
@@ -300,6 +333,9 @@ export default function ProfilePage() {
   });
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [prefsMessage, setPrefsMessage] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
 
   const myEnteredPending = useMemo(
     () =>
@@ -338,12 +374,12 @@ export default function ProfilePage() {
   );
 
   const risksIApproved = useMemo(() => {
-    if (!user?.groups?.includes("admin")) return [];
+    if (!user || !hasMinRole(user.groups, "admin")) return [];
     return approvedRisksAdmin.filter((r) => isActionedByUser(r, user));
   }, [user, approvedRisksAdmin]);
 
   const risksIRejected = useMemo(() => {
-    if (!user?.groups?.includes("admin")) return [];
+    if (!user || !hasMinRole(user.groups, "admin")) return [];
     return rejectedRisksAdmin.filter((r) => isActionedByUser(r, user));
   }, [user, rejectedRisksAdmin]);
 
@@ -412,6 +448,31 @@ export default function ProfilePage() {
     }
   }, [notificationPrefs]);
 
+  const loadUserProfile = useCallback(async (sessionUser?: AuthUser | null) => {
+    setProfileLoadError(null);
+    try {
+      const res = await fetch("/api/users/profile", { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUserProfile(null);
+        setProfileLoadError(
+          (data?.error as string) || `Could not load profile (${res.status})`,
+        );
+        return;
+      }
+      const profile = extractUserProfile(data, sessionUser ?? undefined);
+      setUserProfile(profile);
+      if (!profile && !data?.error) {
+        setProfileLoadError(null);
+      }
+    } catch {
+      setUserProfile(null);
+      setProfileLoadError("Could not load profile.");
+    } finally {
+      setProfileLoaded(true);
+    }
+  }, []);
+
   const refetchRisks = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -428,7 +489,7 @@ export default function ProfilePage() {
       const list = rawList.filter((r) => isRiskOwnedByUser(r, user));
       setRisks(list);
 
-      if (user.groups?.includes("admin")) {
+      if (user.groups && hasMinRole(user.groups, "admin")) {
         const [approvedRes, rejectedRes] = await Promise.all([
           fetch("/api/admin/approved-risks", { credentials: "include" }),
           fetch("/api/admin/rejected-risks", { credentials: "include" }),
@@ -471,6 +532,24 @@ export default function ProfilePage() {
         }
         if (!cancelled) setUser(u);
 
+        const profileRes = await fetch("/api/users/profile", {
+          credentials: "include",
+        });
+        const profileData = await profileRes.json().catch(() => ({}));
+        if (!cancelled) {
+          if (!profileRes.ok) {
+            setProfileLoadError(
+              (profileData?.error as string) ||
+                `Could not load profile (${profileRes.status})`,
+            );
+            setUserProfile(null);
+          } else {
+            setUserProfile(extractUserProfile(profileData, u));
+            setProfileLoadError(null);
+          }
+          setProfileLoaded(true);
+        }
+
         const risksRes = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -494,7 +573,7 @@ export default function ProfilePage() {
           : rawList;
         if (!cancelled) setRisks(list);
 
-        if (u.groups?.includes("admin")) {
+        if (u.groups && hasMinRole(u.groups, "admin")) {
           const [approvedRes, rejectedRes] = await Promise.all([
             fetch("/api/admin/approved-risks", { credentials: "include" }),
             fetch("/api/admin/rejected-risks", { credentials: "include" }),
@@ -550,8 +629,23 @@ export default function ProfilePage() {
   }
 
   const displayName =
-    user?.name || user?.email || user?.username || user?.sub || "User";
-  const isAdmin = user?.groups?.includes("admin");
+    userProfile?.name ||
+    user?.name ||
+    user?.email ||
+    user?.username ||
+    user?.sub ||
+    "User";
+  const displayEmail = userProfile?.email || user?.email || "";
+  const orgLabel = userProfile
+    ? organizationScopeLabel(userProfile.college, userProfile.unit)
+    : null;
+  const expertiseList = userProfile
+    ? formatExpertiseForDisplay(userProfile.expertise)
+    : [];
+  const memberSince = userProfile?.created_at
+    ? formatDate(userProfile.created_at)
+    : "";
+  const isAdmin = user ? hasMinRole(user.groups, "admin") : false;
 
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: "entered", label: "Risks I entered", count: risks.length },
@@ -579,7 +673,10 @@ export default function ProfilePage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => refetchRisks()}
+            onClick={() => {
+              void loadUserProfile(user);
+              void refetchRisks();
+            }}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
           >
@@ -589,27 +686,106 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* User summary card */}
+      {/* Profile information */}
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-calpoly-green/10 text-calpoly-green">
-            <User className="h-7 w-7" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-lg font-semibold text-gray-900">{displayName}</p>
-              {isAdmin && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-calpoly-gold/50 bg-calpoly-gold/10 px-2.5 py-0.5 text-xs font-medium text-calpoly-green">
-                  <Shield className="h-3 w-3" />
-                  Admin
-                </span>
+        <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-calpoly-green/10 text-calpoly-green">
+              <User className="h-7 w-7" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900">{displayName}</h2>
+                {isAdmin && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-calpoly-gold/50 bg-calpoly-gold/10 px-2.5 py-0.5 text-xs font-medium text-calpoly-green">
+                    <Shield className="h-3 w-3" />
+                    Admin
+                  </span>
+                )}
+              </div>
+              {displayEmail && (
+                <p className="mt-0.5 text-sm text-gray-600">{displayEmail}</p>
               )}
             </div>
-            {user?.email && (
-              <p className="mt-0.5 text-sm text-gray-600">{user.email}</p>
+          </div>
+          {profileLoaded && (
+            <Link
+              href={userProfile ? "/onboarding?edit=1" : "/onboarding"}
+              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-calpoly-green shadow-sm transition hover:bg-gray-50"
+            >
+              <Pencil className="h-4 w-4" />
+              {userProfile ? "Edit" : "Complete profile"}
+            </Link>
+          )}
+        </div>
+
+        {profileLoadError && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {profileLoadError}
+          </p>
+        )}
+
+        {!profileLoaded ? (
+          <p className="pt-4 text-sm text-gray-500">Loading profile…</p>
+        ) : !userProfile ? (
+          <div className="pt-4 text-center">
+            <p className="text-sm text-gray-600">
+              {profileLoadError
+                ? "Fix the error above, then refresh."
+                : "Add organization and expertise to help match you with relevant risks."}
+            </p>
+            {!profileLoadError && (
+              <Link
+                href="/onboarding"
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-calpoly-green hover:underline"
+              >
+                Complete profile
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             )}
           </div>
-        </div>
+        ) : (
+          <dl className="grid gap-5 pt-5 sm:grid-cols-2">
+            <ProfileInfoRow
+              label="Organization"
+              value={orgLabel ?? <span className="text-gray-500">—</span>}
+            />
+            <ProfileInfoRow
+              label="Department"
+              value={
+                userProfile.department?.trim() ? (
+                  userProfile.department
+                ) : (
+                  <span className="text-gray-500">—</span>
+                )
+              }
+            />
+            {memberSince && (
+              <ProfileInfoRow label="Member since" value={memberSince} />
+            )}
+            <div className="sm:col-span-2">
+              <ProfileInfoRow
+                label="Expertise"
+                value={
+                  expertiseList.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {expertiseList.map((item) => (
+                        <span
+                          key={item}
+                          className="inline-flex rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-800"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-500">—</span>
+                  )
+                }
+              />
+            </div>
+          </dl>
+        )}
       </section>
 
       {/* Profile-level tabs: Activity vs Settings (same pattern as Dashboard tabs) */}

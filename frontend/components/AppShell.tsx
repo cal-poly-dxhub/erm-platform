@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Menu,
   X,
@@ -15,6 +15,7 @@ import {
   GitBranch,
   FilePlus2,
 } from "lucide-react";
+import { hasMinRole } from "@/lib/auth/roles";
 
 type AuthUser = {
   sub: string;
@@ -26,6 +27,7 @@ type AuthUser = {
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingAdminCount, setPendingAdminCount] = useState<number | null>(
@@ -33,6 +35,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   );
   const [hash, setHash] = useState("");
   const isLogin = pathname === "/login";
+  const isOnboarding = pathname === "/onboarding";
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -51,6 +54,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, [isLogin]);
 
   useEffect(() => {
+    if (isLogin || isOnboarding) return;
+
+    fetch("/api/users/profile", { credentials: "include" })
+      .then(async (r) => {
+        const data = await r.json().catch(() => null);
+        if (!r.ok) return;
+        if (data?.exists === false) {
+          router.replace("/onboarding");
+        }
+      })
+      .catch(() => {});
+  }, [isLogin, isOnboarding, pathname, router]);
+
+  useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
 
@@ -58,7 +75,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return <div className="min-h-screen bg-[#f8f9fa]">{children}</div>;
   }
 
-  const isAdmin = user?.groups?.includes("admin") ?? false;
+  const isAdmin = user ? hasMinRole(user.groups, "admin") : false;
 
   useEffect(() => {
     if (!isAdmin) {

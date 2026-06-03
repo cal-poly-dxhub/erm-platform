@@ -16,11 +16,6 @@ const getClientSecret = () => requiredEnv("COGNITO_CLIENT_SECRET");
 const getRegion = () => requiredEnv("COGNITO_REGION");
 const getUserPoolId = () => requiredEnv("COGNITO_USER_POOL_ID");
 
-export const getRequiredRiskViewerGroup = () => {
-  const group = process.env.REQUIRED_COGNITO_GROUP?.trim();
-  return group || null;
-};
-
 export const getAppOrigin = (request: NextRequest) => {
   const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (explicit) {

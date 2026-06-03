@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as oidc from "openid-client";
 import { getAppOrigin, getOidcConfiguration } from "@/lib/auth/cognito";
+import { getProfileExists } from "@/lib/auth/checkUserProfile";
 import {
   clearAuthFlow,
   setSession,
@@ -97,8 +98,18 @@ export async function GET(request: NextRequest) {
     };
 
     const returnTo = sanitizeReturnTo(authFlow.returnTo);
+    let destination = returnTo;
+    try {
+      const profileExists = await getProfileExists(user);
+      if (profileExists === false) {
+        destination = "/onboarding";
+      }
+    } catch (error) {
+      console.warn("Profile check on login failed:", error);
+    }
+
     const response = NextResponse.redirect(
-      new URL(returnTo, getAppOrigin(request))
+      new URL(destination, getAppOrigin(request))
     );
     clearAuthFlow(response);
     setSession(response, user);

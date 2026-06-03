@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { hasMinRole } from "@/lib/auth/roles";
 import { readSession } from "@/lib/auth/session";
 
-const ADMIN_GROUP = "admin";
 const COGNITO_ADMIN_API_URL = process.env.COGNITO_ADMIN_API_URL?.trim();
 
 function parseLambdaResponse(res: Response, raw: string) {
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!session.groups.includes(ADMIN_GROUP)) {
+  if (!hasMinRole(session.groups, "admin")) {
     return NextResponse.json(
       { error: "Forbidden. Admin access required." },
       { status: 403 },
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!session.groups.includes(ADMIN_GROUP)) {
+  if (!hasMinRole(session.groups, "admin")) {
     return NextResponse.json(
       { error: "Forbidden. Admin access required." },
       { status: 403 },

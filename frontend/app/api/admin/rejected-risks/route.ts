@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { hasMinRole } from "@/lib/auth/roles";
 import { readSession } from "@/lib/auth/session";
 
 const DASHBOARD_API_URL =
   process.env.ERM_DASHBOARD_RESULTS_URL ?? "";
-
-const ADMIN_GROUP = "admin";
 
 export async function GET(request: NextRequest) {
   const session = readSession(request);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!session.groups.includes(ADMIN_GROUP)) {
+  if (!hasMinRole(session.groups, "admin")) {
     return NextResponse.json(
       { error: "Forbidden. Admin access required." },
       { status: 403 },

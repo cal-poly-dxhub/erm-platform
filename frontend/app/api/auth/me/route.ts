@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRequiredRiskViewerGroup } from "@/lib/auth/cognito";
+import { getRole, hasAppAccess } from "@/lib/auth/roles";
 import { readSession } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
@@ -8,15 +8,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const requiredGroup = getRequiredRiskViewerGroup();
-  if (requiredGroup && !session.groups.includes(requiredGroup)) {
+  if (!hasAppAccess(session.groups)) {
     return NextResponse.json(
       {
-        error: `Forbidden. Missing required group: ${requiredGroup}`,
-        debug: {
-          requiredGroup,
-          sessionGroups: session.groups,
-        },
+        error:
+          "Forbidden. You must be assigned a role (user, admin, or superadmin).",
       },
       { status: 403 }
     );
@@ -28,6 +24,7 @@ export async function GET(request: NextRequest) {
       email: session.email,
       name: session.name,
       username: session.username,
+      role: getRole(session.groups),
       groups: session.groups,
     },
   });

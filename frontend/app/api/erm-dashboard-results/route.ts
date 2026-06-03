@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRequiredRiskViewerGroup } from "@/lib/auth/cognito";
+import { hasAppAccess } from "@/lib/auth/roles";
 import { readSession } from "@/lib/auth/session";
 
 const API_URL = process.env.ERM_DASHBOARD_RESULTS_URL ?? "";
@@ -10,10 +10,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const requiredGroup = getRequiredRiskViewerGroup();
-  if (requiredGroup && !session.groups.includes(requiredGroup)) {
+  if (!hasAppAccess(session.groups)) {
     return NextResponse.json(
-      { error: `Forbidden. Missing required group: ${requiredGroup}` },
+      {
+        error:
+          "Forbidden. You must be assigned a role (user, admin, or superadmin).",
+      },
       { status: 403 }
     );
   }
