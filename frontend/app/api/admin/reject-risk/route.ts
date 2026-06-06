@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { parseLambdaProxyResponse } from "@/lib/api/parseLambdaResponse";
 import { readSession } from "@/lib/auth/session";
 
 const RISK_APPROVAL_API_URL = process.env.RISK_APPROVAL_API_URL || "";
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const actionedBy = session.email ?? session.username ?? session.sub ??  "";
+    const actionedBy = session.email ?? session.username ?? session.sub ?? "";
 
     if (!session.accessToken) {
       return NextResponse.json(
@@ -60,23 +61,24 @@ export async function POST(request: NextRequest) {
     });
 
     const responseBody = await response.text();
-    if (!response.ok) {
+    const { status, body: result } = parseLambdaProxyResponse(
+      response,
+      responseBody,
+    );
+
+    if (status < 200 || status >= 300) {
       return NextResponse.json(
         {
-          error: `Reject API failed: ${response.status}`,
+          error:
+            (typeof result.error === "string" && result.error) ||
+            `Reject API failed: ${status}`,
           upstreamBody: responseBody || undefined,
         },
-        { status: response.status },
+        { status: status >= 400 && status < 600 ? status : 502 },
       );
     }
 
-    const data = responseBody ? JSON.parse(responseBody) : {};
-    const result = data?.body
-      ? typeof data.body === "string"
-        ? JSON.parse(data.body)
-        : data.body
-      : data;
-    return NextResponse.json(result ?? { ok: true });
+    return NextResponse.json(result.success !== undefined ? result : { ok: true });
   } catch (error) {
     return NextResponse.json(
       {
