@@ -46,8 +46,6 @@ const RiskModal: React.FC<RiskModalProps> = ({
   onReject, // eslint-disable-line @typescript-eslint/no-unused-vars
 }) => {
   const [formData, setFormData] = useState({
-    riskIdNo: "",
-    
     // Organization Scope
     orgType: "college", 
     college: "",
@@ -129,7 +127,6 @@ const RiskModal: React.FC<RiskModalProps> = ({
         String(risk.id).trim() !== "";
       const hasExistingMitigationText = !!(risk.additionalControls || "").trim();
       setFormData({
-        riskIdNo: risk.riskIdNo || "",
         orgType: risk.orgType || "college",
         college: risk.college || risk.collegeUnit || "",
         unit: risk.unit || risk.collegeUnit || "",
@@ -163,7 +160,6 @@ const RiskModal: React.FC<RiskModalProps> = ({
       setMitigationRecalcEnabled(isExistingRisk && hasExistingMitigationText);
     } else {
       setFormData({
-        riskIdNo: "",
         orgType: "college",
         college: "",
         unit: "",
@@ -364,13 +360,15 @@ const RiskModal: React.FC<RiskModalProps> = ({
       return;
     }
     const isNewRisk = !hasExistingRiskRef;
-    const payload = {
+    const payload: Record<string, unknown> = {
       ...formData,
       id: isNewRisk ? undefined : numericId,
       action: isNewRisk ? "create" : "update",
       approvalStatus: risk?.approvalStatus || "pending",
-      riskIdNo: formData.riskIdNo || risk?.riskIdNo || "",
     };
+    if (!isNewRisk && risk?.riskIdNo) {
+      payload.riskIdNo = risk.riskIdNo;
+    }
     try {
       const res = await fetch("/api/store-risk", {
         method: "POST",
@@ -383,7 +381,20 @@ const RiskModal: React.FC<RiskModalProps> = ({
         setUiMessage(data?.error || `Failed to save risk: ${res.status}`);
         return;
       }
-      onSave({ ...formData, id: payload.id != null ? String(payload.id) : undefined } as Risk);
+      const data = await res.json().catch(() => ({}));
+      const assignedRiskId =
+        typeof data?.risk_id === "string" || typeof data?.risk_id === "number"
+          ? String(data.risk_id)
+          : typeof data?.riskIdNo === "string"
+            ? data.riskIdNo
+            : !isNewRisk
+              ? risk?.riskIdNo
+              : undefined;
+      onSave({
+        ...formData,
+        id: payload.id != null ? String(payload.id) : data?.id != null ? String(data.id) : undefined,
+        riskIdNo: assignedRiskId,
+      } as Risk);
       onClose();
     } catch (err) {
       setUiMessage(err instanceof Error ? err.message : "Failed to save risk");
@@ -627,22 +638,9 @@ const RiskModal: React.FC<RiskModalProps> = ({
               <h4 className="col-span-full text-lg font-semibold text-calpoly-gold mb-2">
                 1. Risk Identification & Context
               </h4>
-              
-              <div className="col-span-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Risk ID No. <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.riskIdNo}
-                  onChange={(e) => handleChange("riskIdNo", e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-calpoly-gold"
-                />
-              </div>
 
               {/* ORGANIZATION SCOPE SELECTOR */}
-              <div className="col-span-full md:col-span-3 bg-white p-3 rounded border border-gray-200">
+              <div className="col-span-full bg-white p-3 rounded border border-gray-200">
                 <label className="block text-sm font-bold text-gray-700 mb-2">
                   Organization Scope <span className="text-red-500">*</span>
                 </label>

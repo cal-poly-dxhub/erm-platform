@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasAppAccess } from "@/lib/auth/roles";
 import { readSession } from "@/lib/auth/session";
 
 const API_URL = process.env.ERM_DASHBOARD_RESULTS_URL ?? "";
@@ -8,16 +7,6 @@ export async function POST(request: NextRequest) {
   const session = readSession(request);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!hasAppAccess(session.groups)) {
-    return NextResponse.json(
-      {
-        error:
-          "Forbidden. You must be assigned a role (user, admin, or superadmin).",
-      },
-      { status: 403 }
-    );
   }
 
   let body = await request.text();

@@ -7,10 +7,18 @@ import { Risk } from "@/types";
 interface RiskCardProps {
   risk: Risk;
   onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
+  canEdit?: boolean;
+  showViewLabel?: boolean;
 }
 
-const RiskCard: React.FC<RiskCardProps> = ({ risk, onEdit, onDelete }) => {
+const RiskCard: React.FC<RiskCardProps> = ({
+  risk,
+  onEdit,
+  onDelete,
+  canEdit = true,
+  showViewLabel = false,
+}) => {
   const baselineData = getRiskData(risk.likelihood, risk.impact);
   const residualData = getRiskData(risk.updatedLikelihood, risk.updatedImpact);
   const approvalStatus = (risk.approvalStatus || "pending").toLowerCase();
@@ -60,18 +68,21 @@ const RiskCard: React.FC<RiskCardProps> = ({ risk, onEdit, onDelete }) => {
             type="button"
             onClick={() => onEdit(risk.id)}
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-calpoly-green"
-            aria-label="Edit"
+            aria-label={canEdit ? "Edit" : "View"}
+            title={canEdit ? "Edit" : showViewLabel ? "View" : "View"}
           >
             <Edit className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => onDelete(risk.id)}
-            className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
-            aria-label="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canEdit && onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(risk.id)}
+              className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
+              aria-label="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
       <div className="mt-3 grid grid-cols-1 gap-2 border-t border-gray-100 pt-3 md:grid-cols-3">

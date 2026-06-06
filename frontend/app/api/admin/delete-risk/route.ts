@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasMinRole } from "@/lib/auth/roles";
 import { readSession } from "@/lib/auth/session";
 
 const STORE_RISK_LAMBDA_API_URL = process.env.STORE_RISK_LAMBDA_API_URL || "";
@@ -8,12 +7,6 @@ export async function POST(request: NextRequest) {
   const session = readSession(request);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!hasMinRole(session.groups, "admin")) {
-    return NextResponse.json(
-      { error: "Forbidden. Admin access required." },
-      { status: 403 },
-    );
   }
   if (!STORE_RISK_LAMBDA_API_URL) {
     return NextResponse.json(
@@ -36,16 +29,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!session.accessToken) {
+      return NextResponse.json(
+        { error: "Unauthorized. Missing access token in session." },
+        { status: 401 },
+      );
+    }
     const authHeader =
       request.headers.get("Authorization") ??
-      (session.accessToken
-        ? `Bearer ${session.accessToken}`
-        : session.idToken
-          ? `Bearer ${session.idToken}`
-          : null);
-    if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+      `Bearer ${session.accessToken}`;
 
     const response = await fetch(STORE_RISK_LAMBDA_API_URL, {
       method: "POST",

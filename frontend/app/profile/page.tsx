@@ -18,9 +18,10 @@ import {
 } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
 import { Risk } from "@/types";
-import { hasMinRole } from "@/lib/auth/roles";
 import { organizationScopeLabel } from "@/utils/orgLabels";
 import { extractUserProfile, type UserProfile } from "@/lib/api/userProfile";
+import { isAdmin as userIsAdmin, isSuperAdmin } from "@/lib/auth/groups";
+import { useAuthUser } from "@/lib/auth/useAuthUser";
 import { formatExpertiseForDisplay } from "@/utils/expertise";
 
 type ApiRisk = {
@@ -59,6 +60,7 @@ type AuthUser = {
   name?: string;
   username?: string;
   groups: string[];
+  role?: string | null;
 };
 
 type UserProfile = {
@@ -315,6 +317,7 @@ type TabId = "entered" | "approved" | "rejected";
 type ProfileSection = "activity" | "settings";
 
 export default function ProfilePage() {
+  const { groups: authGroups } = useAuthUser();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [risks, setRisks] = useState<ApiRisk[]>([]);
   const [approvedRisksAdmin, setApprovedRisksAdmin] = useState<ApiRisk[]>([]);
@@ -336,7 +339,6 @@ export default function ProfilePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
-
   const myEnteredPending = useMemo(
     () =>
       risks
@@ -373,15 +375,19 @@ export default function ProfilePage() {
     [risks],
   );
 
+  const effectiveGroups = user?.groups ?? authGroups;
+  const showAdminActivity = userIsAdmin(effectiveGroups);
+  const showSuperAdminBadge = isSuperAdmin(effectiveGroups);
+
   const risksIApproved = useMemo(() => {
-    if (!user || !hasMinRole(user.groups, "admin")) return [];
+    if (!user || !showAdminActivity) return [];
     return approvedRisksAdmin.filter((r) => isActionedByUser(r, user));
-  }, [user, approvedRisksAdmin]);
+  }, [user, approvedRisksAdmin, showAdminActivity]);
 
   const risksIRejected = useMemo(() => {
-    if (!user || !hasMinRole(user.groups, "admin")) return [];
+    if (!user || !showAdminActivity) return [];
     return rejectedRisksAdmin.filter((r) => isActionedByUser(r, user));
-  }, [user, rejectedRisksAdmin]);
+  }, [user, rejectedRisksAdmin, showAdminActivity]);
 
   useEffect(() => {
     if (!user) return;
@@ -489,7 +495,7 @@ export default function ProfilePage() {
       const list = rawList.filter((r) => isRiskOwnedByUser(r, user));
       setRisks(list);
 
-      if (user.groups && hasMinRole(user.groups, "admin")) {
+      if (user && userIsAdmin(user.groups)) {
         const [approvedRes, rejectedRes] = await Promise.all([
           fetch("/api/admin/approved-risks", { credentials: "include" }),
           fetch("/api/admin/rejected-risks", { credentials: "include" }),
@@ -497,11 +503,18 @@ export default function ProfilePage() {
         if (approvedRes.ok) {
           const arr = await approvedRes.json();
           setApprovedRisksAdmin(Array.isArray(arr) ? arr : []);
+        } else {
+          setApprovedRisksAdmin([]);
         }
         if (rejectedRes.ok) {
           const arr = await rejectedRes.json();
           setRejectedRisksAdmin(Array.isArray(arr) ? arr : []);
+        } else {
+          setRejectedRisksAdmin([]);
         }
+      } else {
+        setApprovedRisksAdmin([]);
+        setRejectedRisksAdmin([]);
       }
     } finally {
       setLoading(false);
@@ -573,18 +586,22 @@ export default function ProfilePage() {
           : rawList;
         if (!cancelled) setRisks(list);
 
-        if (u.groups && hasMinRole(u.groups, "admin")) {
+        if (!cancelled && userIsAdmin(u.groups ?? [])) {
           const [approvedRes, rejectedRes] = await Promise.all([
             fetch("/api/admin/approved-risks", { credentials: "include" }),
             fetch("/api/admin/rejected-risks", { credentials: "include" }),
           ]);
-          if (approvedRes.ok && !cancelled) {
+          if (approvedRes.ok) {
             const arr = await approvedRes.json();
             setApprovedRisksAdmin(Array.isArray(arr) ? arr : []);
+          } else {
+            setApprovedRisksAdmin([]);
           }
-          if (rejectedRes.ok && !cancelled) {
+          if (rejectedRes.ok) {
             const arr = await rejectedRes.json();
             setRejectedRisksAdmin(Array.isArray(arr) ? arr : []);
+          } else {
+            setRejectedRisksAdmin([]);
           }
         }
       } catch (e) {
@@ -645,12 +662,12 @@ export default function ProfilePage() {
   const memberSince = userProfile?.created_at
     ? formatDate(userProfile.created_at)
     : "";
-  const isAdmin = user ? hasMinRole(user.groups, "admin") : false;
+  const showStaffBadge = showAdminActivity;
 
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: "entered", label: "Risks I entered", count: risks.length },
   ];
-  if (isAdmin) {
+  if (showAdminActivity) {
     tabs.push({ id: "approved", label: "Risks I approved", count: risksIApproved.length });
     tabs.push({ id: "rejected", label: "Risks I rejected", count: risksIRejected.length });
   }
@@ -667,7 +684,8 @@ export default function ProfilePage() {
             Profile
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Your risks and activity. {isAdmin ? "Admin actions appear in separate tabs." : ""}
+            Your risks and activity.{" "}
+            {showAdminActivity ? "Admin actions appear in separate tabs." : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -696,10 +714,10 @@ export default function ProfilePage() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-900">{displayName}</h2>
-                {isAdmin && (
+                {showStaffBadge && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-calpoly-gold/50 bg-calpoly-gold/10 px-2.5 py-0.5 text-xs font-medium text-calpoly-green">
                     <Shield className="h-3 w-3" />
-                    Admin
+                    {showSuperAdminBadge ? "Super admin" : "Admin"}
                   </span>
                 )}
               </div>
@@ -821,7 +839,7 @@ export default function ProfilePage() {
                 Notification Preferences
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                {isAdmin
+                {showAdminActivity
                   ? "Control notifications about new and pending risks."
                   : "Control notifications about decisions on your submitted risks."}
               </p>
@@ -834,7 +852,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="mt-4 space-y-4">
-            {isAdmin ? (
+            {showAdminActivity ? (
               <>
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -1107,7 +1125,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {activeTab === "approved" && isAdmin && (
+            {activeTab === "approved" && showAdminActivity && (
               <div>
                 <h2 className="text-lg font-semibold text-calpoly-green">Risks you approved</h2>
                 <p className="mt-1 text-sm text-gray-500">
@@ -1138,7 +1156,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {activeTab === "rejected" && isAdmin && (
+            {activeTab === "rejected" && showAdminActivity && (
               <div>
                 <h2 className="text-lg font-semibold text-calpoly-green">Risks you rejected</h2>
                 <p className="mt-1 text-sm text-gray-500">
@@ -1178,7 +1196,7 @@ export default function ProfilePage() {
           refetchRisks();
           setViewRisk(null);
         }}
-        readOnly={!isAdmin}
+        readOnly
       />
     </div>
   );

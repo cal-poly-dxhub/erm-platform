@@ -15,20 +15,12 @@ import {
   GitBranch,
   FilePlus2,
 } from "lucide-react";
-import { hasMinRole } from "@/lib/auth/roles";
-
-type AuthUser = {
-  sub: string;
-  email?: string;
-  name?: string;
-  username?: string;
-  groups: string[];
-};
+import { useAuthUser } from "@/lib/auth/useAuthUser";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const { user, isAdmin, isSuperAdmin } = useAuthUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingAdminCount, setPendingAdminCount] = useState<number | null>(
     null,
@@ -44,14 +36,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener("hashchange", read);
     return () => window.removeEventListener("hashchange", read);
   }, [pathname]);
-
-  useEffect(() => {
-    if (isLogin) return;
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUser(data?.user ?? null))
-      .catch(() => setUser(null));
-  }, [isLogin]);
 
   useEffect(() => {
     if (isLogin || isOnboarding) return;
@@ -75,10 +59,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return <div className="min-h-screen bg-[#f8f9fa]">{children}</div>;
   }
 
-  const isAdmin = user ? hasMinRole(user.groups, "admin") : false;
+  const onAdminReview =
+    pathname?.startsWith("/dashboard/admin/review") ||
+    pathname === "/admin-review";
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!user || !isAdmin || !onAdminReview) {
       setPendingAdminCount(null);
       return;
     }
@@ -92,7 +78,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => setPendingAdminCount(null));
-  }, [isAdmin]);
+  }, [user, isAdmin, onAdminReview]);
 
   const navLink =
     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/90 transition hover:bg-white/10 hover:text-white";
@@ -198,8 +184,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               Dashboard
             </Link>
             {isAdmin && (
-              <>
-                <Link
+              <Link
                   href="/dashboard/admin/review"
                   className={
                     navLink +
@@ -216,19 +201,21 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     </span>
                   )}
                 </Link>
-                <Link
-                  href="/dashboard/admin/users"
-                  className={
-                    navLink +
-                    (pathname === "/dashboard/admin/users"
-                      ? " " + navLinkActive
-                      : "")
-                  }
-                >
-                  <Users className="h-5 w-5 shrink-0" />
-                  User Management
-                </Link>
-              </>
+            )}
+            {isSuperAdmin && (
+              <Link
+                href="/dashboard/admin/users"
+                className={
+                  navLink +
+                  (pathname === "/dashboard/admin/users" ||
+                  pathname === "/user-management"
+                    ? " " + navLinkActive
+                    : "")
+                }
+              >
+                <Users className="h-5 w-5 shrink-0" />
+                User Management
+              </Link>
             )}
           </div>
 

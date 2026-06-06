@@ -78,8 +78,9 @@ export async function GET(request: NextRequest) {
     }
 
     const accessTokenClaims = decodeJwtPayload(tokens.access_token);
-    const groups = parseGroups(claims["cognito:groups"]);
-    const fallbackGroups = parseGroups(accessTokenClaims?.["cognito:groups"]);
+    const groupsFromAccess = parseGroups(
+      accessTokenClaims?.["cognito:groups"],
+    );
 
     const user: SessionUser = {
       sub: claims.sub,
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
       username:
         (userInfo.preferred_username as string | undefined) ||
         (claims["cognito:username"] as string | undefined),
-      groups: groups.length > 0 ? groups : fallbackGroups,
+      groups: groupsFromAccess,
       idToken: tokens.id_token,
       accessToken: tokens.access_token,
     };

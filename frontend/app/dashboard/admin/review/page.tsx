@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, Clock, CheckCircle, XCircle, MoreHorizontal, RefreshCw } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
+import { useAdminRouteGuard } from "@/lib/auth/useRouteGuard";
 import { Risk } from "@/types";
 
 type ApiRisk = {
@@ -101,6 +102,7 @@ function parseNumericId(value: string): number | null {
 }
 
 export default function AdminReviewPage() {
+  const { ready } = useAdminRouteGuard("/dashboard/admin/review");
   const [allRisks, setAllRisks] = useState<ApiRisk[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -197,8 +199,8 @@ export default function AdminReviewPage() {
   }, []);
 
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    if (ready) fetchAll();
+  }, [fetchAll, ready]);
 
   const handleApprove = async (risk: Risk) => {
     const numericId = parseNumericId(risk.id);
@@ -359,6 +361,14 @@ export default function AdminReviewPage() {
   const openDeleteDialog = (risk: Risk) => {
     setDeleteDialogRisk(risk);
   };
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-600">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

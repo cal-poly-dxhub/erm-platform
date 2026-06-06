@@ -51,11 +51,11 @@ function buildLambdaBody(body: Record<string, unknown>) {
   const unitValue = toStr(body.unit || body.college || "");
   const recordId = toPositiveInt(body.id);
   const actionValue = toStr(body.action ?? (recordId ? "update" : "create"));
+  const riskId = toStr(body.riskIdNo ?? body.risk_id ?? "");
 
-  return {
+  const payload: Record<string, unknown> = {
     ...(recordId ? { id: recordId } : {}),
     action: actionValue,
-    risk_id: toStr(body.riskIdNo ?? body.risk_id ?? ""),
     unit: unitValue,
     // Normalize commonly filtered free-text fields for consistent matching.
     department: toNormalizedKey(body.department ?? ""),
@@ -101,6 +101,13 @@ function buildLambdaBody(body: Record<string, unknown>) {
     status_tolerance: toStr(body.statusTolerance ?? body.status_tolerance ?? ""),
     approval_status: toStr(body.approvalStatus ?? body.approval_status ?? ""),
   };
+
+  // risk_id is DB-generated on create (sequence default); only send on update to preserve.
+  if (actionValue !== "create" && riskId) {
+    payload.risk_id = riskId;
+  }
+
+  return payload;
 }
 
 export async function POST(request: NextRequest) {
@@ -131,15 +138,15 @@ export async function POST(request: NextRequest) {
     console.log("sending to Lambda:", JSON.stringify(lambdaBody, null, 2)); // ADD THIS
 
 
-    const authHeader =
-      request.headers.get("Authorization") ??
-      (session.accessToken ? `Bearer ${session.accessToken}` : null);
-    if (!authHeader) {
+    if (!session.accessToken) {
       return NextResponse.json(
-        { error: "Unauthorized. Missing access token." },
-        { status: 401 }
+        { error: "Unauthorized. Missing access token in session." },
+        { status: 401 },
       );
     }
+    const authHeader =
+      request.headers.get("Authorization") ??
+      `Bearer ${session.accessToken}`;
 
     const response = await fetch(STORE_RISK_LAMBDA_API_URL, {
       method: "POST",

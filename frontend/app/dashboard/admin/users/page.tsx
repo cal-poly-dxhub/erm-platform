@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, UserPlus, UserMinus, RefreshCw } from "lucide-react";
+import { useAuthUser } from "@/lib/auth/useAuthUser";
+import { useSuperAdminRouteGuard } from "@/lib/auth/useRouteGuard";
 
 type AdminRow = {
   email: string;
@@ -11,6 +13,8 @@ type AdminRow = {
 };
 
 export default function AdminUsersPage() {
+  const { isSuperAdmin } = useAuthUser();
+  const { ready } = useSuperAdminRouteGuard("/dashboard/admin/users");
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,17 +26,32 @@ export default function AdminUsersPage() {
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
 
   const fetchAdmins = useCallback(async () => {
+    if (!isSuperAdmin) {
+      setAdmins([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     setActionMessage(null);
     try {
-      const res = await fetch("/api/admin/cognito-admin", { credentials: "include" });
+      const res = await fetch("/api/admin/cognito-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "list_admins" }),
+      });
       if (res.status === 401) {
         window.location.href = "/login?returnTo=/dashboard/admin/users";
         return;
       }
       if (res.status === 403) {
-        setError("You do not have admin access.");
+        const data = await res.json().catch(() => ({}));
+        setError(
+          data?.error ||
+            data?.Message ||
+            "Super admin access required.",
+        );
         setAdmins([]);
         return;
       }
@@ -58,11 +77,11 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isSuperAdmin]);
 
   useEffect(() => {
-    fetchAdmins();
-  }, [fetchAdmins]);
+    if (ready && isSuperAdmin) fetchAdmins();
+  }, [fetchAdmins, ready, isSuperAdmin]);
 
   const inviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +145,14 @@ export default function AdminUsersPage() {
       setActingEmail(null);
     }
   };
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-600">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
