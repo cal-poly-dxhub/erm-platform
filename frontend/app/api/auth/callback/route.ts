@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as oidc from "openid-client";
 import { getAppOrigin, getOidcConfiguration } from "@/lib/auth/cognito";
+import { getProfileExists } from "@/lib/auth/checkUserProfile";
 import {
   clearAuthFlow,
   setSession,
@@ -77,8 +78,9 @@ export async function GET(request: NextRequest) {
     }
 
     const accessTokenClaims = decodeJwtPayload(tokens.access_token);
-    const groups = parseGroups(claims["cognito:groups"]);
-    const fallbackGroups = parseGroups(accessTokenClaims?.["cognito:groups"]);
+    const groupsFromAccess = parseGroups(
+      accessTokenClaims?.["cognito:groups"],
+    );
 
     const user: SessionUser = {
       sub: claims.sub,
@@ -91,14 +93,24 @@ export async function GET(request: NextRequest) {
       username:
         (userInfo.preferred_username as string | undefined) ||
         (claims["cognito:username"] as string | undefined),
-      groups: groups.length > 0 ? groups : fallbackGroups,
+      groups: groupsFromAccess,
       idToken: tokens.id_token,
       accessToken: tokens.access_token,
     };
 
     const returnTo = sanitizeReturnTo(authFlow.returnTo);
+    let destination = returnTo;
+    try {
+      const profileExists = await getProfileExists(user);
+      if (profileExists === false) {
+        destination = "/onboarding";
+      }
+    } catch (error) {
+      console.warn("Profile check on login failed:", error);
+    }
+
     const response = NextResponse.redirect(
-      new URL(returnTo, getAppOrigin(request))
+      new URL(destination, getAppOrigin(request))
     );
     clearAuthFlow(response);
     setSession(response, user);

@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Menu,
   X,
@@ -15,24 +15,19 @@ import {
   GitBranch,
   FilePlus2,
 } from "lucide-react";
-
-type AuthUser = {
-  sub: string;
-  email?: string;
-  name?: string;
-  username?: string;
-  groups: string[];
-};
+import { useAuthUser } from "@/lib/auth/useAuthUser";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const router = useRouter();
+  const { user, isAdmin, isSuperAdmin } = useAuthUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingAdminCount, setPendingAdminCount] = useState<number | null>(
     null,
   );
   const [hash, setHash] = useState("");
   const isLogin = pathname === "/login";
+  const isOnboarding = pathname === "/onboarding";
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -43,12 +38,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    if (isLogin) return;
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUser(data?.user ?? null))
-      .catch(() => setUser(null));
-  }, [isLogin]);
+    if (isLogin || isOnboarding) return;
+
+    fetch("/api/users/profile", { credentials: "include" })
+      .then(async (r) => {
+        const data = await r.json().catch(() => null);
+        if (!r.ok) return;
+        if (data?.exists === false) {
+          router.replace("/onboarding");
+        }
+      })
+      .catch(() => {});
+  }, [isLogin, isOnboarding, pathname, router]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -58,10 +59,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return <div className="min-h-screen bg-[#f8f9fa]">{children}</div>;
   }
 
-  const isAdmin = user?.groups?.includes("admin") ?? false;
+  const onAdminReview =
+    pathname?.startsWith("/dashboard/admin/review") ||
+    pathname === "/admin-review";
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!user || !isAdmin || !onAdminReview) {
       setPendingAdminCount(null);
       return;
     }
@@ -75,7 +78,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => setPendingAdminCount(null));
-  }, [isAdmin]);
+  }, [user, isAdmin, onAdminReview]);
 
   const navLink =
     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/90 transition hover:bg-white/10 hover:text-white";
@@ -181,8 +184,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               Dashboard
             </Link>
             {isAdmin && (
-              <>
-                <Link
+              <Link
                   href="/dashboard/admin/review"
                   className={
                     navLink +
@@ -199,19 +201,21 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     </span>
                   )}
                 </Link>
-                <Link
-                  href="/dashboard/admin/users"
-                  className={
-                    navLink +
-                    (pathname === "/dashboard/admin/users"
-                      ? " " + navLinkActive
-                      : "")
-                  }
-                >
-                  <Users className="h-5 w-5 shrink-0" />
-                  User Management
-                </Link>
-              </>
+            )}
+            {isSuperAdmin && (
+              <Link
+                href="/dashboard/admin/users"
+                className={
+                  navLink +
+                  (pathname === "/dashboard/admin/users" ||
+                  pathname === "/user-management"
+                    ? " " + navLinkActive
+                    : "")
+                }
+              >
+                <Users className="h-5 w-5 shrink-0" />
+                User Management
+              </Link>
             )}
           </div>
 

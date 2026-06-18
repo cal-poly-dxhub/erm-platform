@@ -6,10 +6,18 @@ import { Risk } from "@/types";
 interface RiskListProps {
   risks: Risk[];
   onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
+  canEditRisk?: (risk: Risk) => boolean;
+  showViewWhenReadOnly?: boolean;
 }
 
-const RiskList: React.FC<RiskListProps> = ({ risks, onEdit, onDelete }) => {
+const RiskList: React.FC<RiskListProps> = ({
+  risks,
+  onEdit,
+  onDelete,
+  canEditRisk,
+  showViewWhenReadOnly = false,
+}) => {
   if (risks.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 bg-gray-50 py-12 px-6 text-center">
@@ -30,6 +38,8 @@ const RiskList: React.FC<RiskListProps> = ({ risks, onEdit, onDelete }) => {
           risk={risk}
           onEdit={onEdit}
           onDelete={onDelete}
+          canEdit={canEditRisk ? canEditRisk(risk) : true}
+          showViewLabel={showViewWhenReadOnly}
         />
       ))}
     </div>

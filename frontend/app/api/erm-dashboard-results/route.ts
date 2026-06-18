@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRequiredRiskViewerGroup } from "@/lib/auth/cognito";
 import { readSession } from "@/lib/auth/session";
 
-const API_URL =
-  "https://0r2exr1sqj.execute-api.us-east-2.amazonaws.com/dev/erm-dashboard-results";
+const API_URL = process.env.ERM_DASHBOARD_RESULTS_URL ?? "";
 
 export async function POST(request: NextRequest) {
   const session = readSession(request);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const requiredGroup = getRequiredRiskViewerGroup();
-  if (requiredGroup && !session.groups.includes(requiredGroup)) {
-    return NextResponse.json(
-      { error: `Forbidden. Missing required group: ${requiredGroup}` },
-      { status: 403 }
-    );
   }
 
   let body = await request.text();

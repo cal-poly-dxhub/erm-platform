@@ -7,6 +7,8 @@ import RiskModal from "@/components/RiskModal";
 import GapAnalysis from "@/components/GapAnalysis";
 import type { GapRiskPrefill } from "@/components/GapAnalysis";
 import { Risk } from "@/types";
+import { canEditRiskInRegister } from "@/lib/auth/groups";
+import { useAuthUser } from "@/lib/auth/useAuthUser";
 
 type ApiRisk = {
   id?: number | string | null;
@@ -128,6 +130,7 @@ const mapApiRiskToRisk = (api: ApiRisk): Risk => {
 };
 
 export default function Home() {
+  const { user, groups, isAdmin } = useAuthUser();
   const [risks, setRisks] = useState<Risk[]>([]);
   const [currentView, setCurrentView] = useState<"register" | "gap">(
     "register",
@@ -252,8 +255,12 @@ export default function Home() {
   };
 
   const handleDeleteRisk = (id: string) => {
+    if (!isAdmin) return;
     setDeleteRiskId(id);
   };
+
+  const canEditRisk = (risk: Risk) =>
+    user ? canEditRiskInRegister(risk, user, groups) : false;
 
   const confirmDeleteRisk = () => {
     if (!deleteRiskId) return;
@@ -506,7 +513,9 @@ export default function Home() {
               <RiskList
                 risks={filteredRisks}
                 onEdit={handleEditRisk}
-                onDelete={handleDeleteRisk}
+                onDelete={isAdmin ? handleDeleteRisk : undefined}
+                canEditRisk={canEditRisk}
+                showViewWhenReadOnly
               />
             </section>
           ) : (
@@ -554,7 +563,7 @@ export default function Home() {
                               onClick={() => handleEditRisk(risk.id)}
                               className="rounded-lg border border-calpoly-green bg-white px-3 py-2 text-sm font-medium text-calpoly-green transition hover:bg-calpoly-green/5"
                             >
-                              Edit
+                              {canEditRisk(risk) ? "Edit" : "View"}
                             </button>
                           </td>
                         </tr>
@@ -577,6 +586,12 @@ export default function Home() {
         onClose={handleCloseModal}
         risk={editingRisk}
         onSave={handleSaveRisk}
+        readOnly={
+          editingRisk != null &&
+          editingRisk.id !== "new" &&
+          String(editingRisk.id).trim() !== "" &&
+          (!user || !canEditRisk(editingRisk))
+        }
       />
 
       <button
@@ -589,7 +604,7 @@ export default function Home() {
         Add New Risk
       </button>
 
-      {deleteRiskId && (
+      {isAdmin && deleteRiskId && (
         <>
           <div
             className="fixed inset-0 z-40 bg-black/40"

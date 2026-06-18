@@ -2,21 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession } from "@/lib/auth/session";
 
 const DASHBOARD_API_URL =
-  process.env.ERM_DASHBOARD_RESULTS_URL ||
-  "https://0r2exr1sqj.execute-api.us-east-2.amazonaws.com/dev/erm-dashboard-results";
-
-const ADMIN_GROUP = "admin";
+  process.env.ERM_DASHBOARD_RESULTS_URL || "";
 
 export async function GET(request: NextRequest) {
   const session = readSession(request);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!session.groups.includes(ADMIN_GROUP)) {
-    return NextResponse.json(
-      { error: "Forbidden. Admin access required." },
-      { status: 403 },
-    );
   }
   if (!session.accessToken) {
     return NextResponse.json(

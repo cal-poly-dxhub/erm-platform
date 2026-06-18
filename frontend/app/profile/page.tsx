@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -14,9 +14,15 @@ import {
   XCircle,
   RefreshCw,
   Bell,
+  Pencil,
 } from "lucide-react";
 import RiskModal from "@/components/RiskModal";
 import { Risk } from "@/types";
+import { organizationScopeLabel } from "@/utils/orgLabels";
+import { extractUserProfile, type UserProfile } from "@/lib/api/userProfile";
+import { isAdmin as userIsAdmin, isSuperAdmin } from "@/lib/auth/groups";
+import { useAuthUser } from "@/lib/auth/useAuthUser";
+import { formatExpertiseForDisplay } from "@/utils/expertise";
 
 type ApiRisk = {
   id?: string | number | null;
@@ -54,7 +60,36 @@ type AuthUser = {
   name?: string;
   username?: string;
   groups: string[];
+  role?: string | null;
 };
+
+type UserProfile = {
+  cognito_sub: string;
+  email: string;
+  name: string;
+  college?: string | null;
+  unit?: string | null;
+  department?: string | null;
+  expertise: string[];
+  created_at?: string | null;
+};
+
+function ProfileInfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+    </div>
+  );
+}
 
 type NotificationPreferences = {
   notifyNewRiskSubmitted: boolean;
@@ -282,6 +317,7 @@ type TabId = "entered" | "approved" | "rejected";
 type ProfileSection = "activity" | "settings";
 
 export default function ProfilePage() {
+  const { groups: authGroups } = useAuthUser();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [risks, setRisks] = useState<ApiRisk[]>([]);
   const [approvedRisksAdmin, setApprovedRisksAdmin] = useState<ApiRisk[]>([]);
@@ -300,7 +336,9 @@ export default function ProfilePage() {
   });
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [prefsMessage, setPrefsMessage] = useState<string | null>(null);
-
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
   const myEnteredPending = useMemo(
     () =>
       risks
@@ -337,15 +375,19 @@ export default function ProfilePage() {
     [risks],
   );
 
+  const effectiveGroups = user?.groups ?? authGroups;
+  const showAdminActivity = userIsAdmin(effectiveGroups);
+  const showSuperAdminBadge = isSuperAdmin(effectiveGroups);
+
   const risksIApproved = useMemo(() => {
-    if (!user?.groups?.includes("admin")) return [];
+    if (!user || !showAdminActivity) return [];
     return approvedRisksAdmin.filter((r) => isActionedByUser(r, user));
-  }, [user, approvedRisksAdmin]);
+  }, [user, approvedRisksAdmin, showAdminActivity]);
 
   const risksIRejected = useMemo(() => {
-    if (!user?.groups?.includes("admin")) return [];
+    if (!user || !showAdminActivity) return [];
     return rejectedRisksAdmin.filter((r) => isActionedByUser(r, user));
-  }, [user, rejectedRisksAdmin]);
+  }, [user, rejectedRisksAdmin, showAdminActivity]);
 
   useEffect(() => {
     if (!user) return;
@@ -412,6 +454,31 @@ export default function ProfilePage() {
     }
   }, [notificationPrefs]);
 
+  const loadUserProfile = useCallback(async (sessionUser?: AuthUser | null) => {
+    setProfileLoadError(null);
+    try {
+      const res = await fetch("/api/users/profile", { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUserProfile(null);
+        setProfileLoadError(
+          (data?.error as string) || `Could not load profile (${res.status})`,
+        );
+        return;
+      }
+      const profile = extractUserProfile(data, sessionUser ?? undefined);
+      setUserProfile(profile);
+      if (!profile && !data?.error) {
+        setProfileLoadError(null);
+      }
+    } catch {
+      setUserProfile(null);
+      setProfileLoadError("Could not load profile.");
+    } finally {
+      setProfileLoaded(true);
+    }
+  }, []);
+
   const refetchRisks = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -428,7 +495,7 @@ export default function ProfilePage() {
       const list = rawList.filter((r) => isRiskOwnedByUser(r, user));
       setRisks(list);
 
-      if (user.groups?.includes("admin")) {
+      if (user && userIsAdmin(user.groups)) {
         const [approvedRes, rejectedRes] = await Promise.all([
           fetch("/api/admin/approved-risks", { credentials: "include" }),
           fetch("/api/admin/rejected-risks", { credentials: "include" }),
@@ -436,11 +503,18 @@ export default function ProfilePage() {
         if (approvedRes.ok) {
           const arr = await approvedRes.json();
           setApprovedRisksAdmin(Array.isArray(arr) ? arr : []);
+        } else {
+          setApprovedRisksAdmin([]);
         }
         if (rejectedRes.ok) {
           const arr = await rejectedRes.json();
           setRejectedRisksAdmin(Array.isArray(arr) ? arr : []);
+        } else {
+          setRejectedRisksAdmin([]);
         }
+      } else {
+        setApprovedRisksAdmin([]);
+        setRejectedRisksAdmin([]);
       }
     } finally {
       setLoading(false);
@@ -471,6 +545,24 @@ export default function ProfilePage() {
         }
         if (!cancelled) setUser(u);
 
+        const profileRes = await fetch("/api/users/profile", {
+          credentials: "include",
+        });
+        const profileData = await profileRes.json().catch(() => ({}));
+        if (!cancelled) {
+          if (!profileRes.ok) {
+            setProfileLoadError(
+              (profileData?.error as string) ||
+                `Could not load profile (${profileRes.status})`,
+            );
+            setUserProfile(null);
+          } else {
+            setUserProfile(extractUserProfile(profileData, u));
+            setProfileLoadError(null);
+          }
+          setProfileLoaded(true);
+        }
+
         const risksRes = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -494,18 +586,22 @@ export default function ProfilePage() {
           : rawList;
         if (!cancelled) setRisks(list);
 
-        if (u.groups?.includes("admin")) {
+        if (!cancelled && userIsAdmin(u.groups ?? [])) {
           const [approvedRes, rejectedRes] = await Promise.all([
             fetch("/api/admin/approved-risks", { credentials: "include" }),
             fetch("/api/admin/rejected-risks", { credentials: "include" }),
           ]);
-          if (approvedRes.ok && !cancelled) {
+          if (approvedRes.ok) {
             const arr = await approvedRes.json();
             setApprovedRisksAdmin(Array.isArray(arr) ? arr : []);
+          } else {
+            setApprovedRisksAdmin([]);
           }
-          if (rejectedRes.ok && !cancelled) {
+          if (rejectedRes.ok) {
             const arr = await rejectedRes.json();
             setRejectedRisksAdmin(Array.isArray(arr) ? arr : []);
+          } else {
+            setRejectedRisksAdmin([]);
           }
         }
       } catch (e) {
@@ -550,13 +646,28 @@ export default function ProfilePage() {
   }
 
   const displayName =
-    user?.name || user?.email || user?.username || user?.sub || "User";
-  const isAdmin = user?.groups?.includes("admin");
+    userProfile?.name ||
+    user?.name ||
+    user?.email ||
+    user?.username ||
+    user?.sub ||
+    "User";
+  const displayEmail = userProfile?.email || user?.email || "";
+  const orgLabel = userProfile
+    ? organizationScopeLabel(userProfile.college, userProfile.unit)
+    : null;
+  const expertiseList = userProfile
+    ? formatExpertiseForDisplay(userProfile.expertise)
+    : [];
+  const memberSince = userProfile?.created_at
+    ? formatDate(userProfile.created_at)
+    : "";
+  const showStaffBadge = showAdminActivity;
 
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: "entered", label: "Risks I entered", count: risks.length },
   ];
-  if (isAdmin) {
+  if (showAdminActivity) {
     tabs.push({ id: "approved", label: "Risks I approved", count: risksIApproved.length });
     tabs.push({ id: "rejected", label: "Risks I rejected", count: risksIRejected.length });
   }
@@ -573,13 +684,17 @@ export default function ProfilePage() {
             Profile
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Your risks and activity. {isAdmin ? "Admin actions appear in separate tabs." : ""}
+            Your risks and activity.{" "}
+            {showAdminActivity ? "Admin actions appear in separate tabs." : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => refetchRisks()}
+            onClick={() => {
+              void loadUserProfile(user);
+              void refetchRisks();
+            }}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
           >
@@ -589,27 +704,106 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* User summary card */}
+      {/* Profile information */}
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-calpoly-green/10 text-calpoly-green">
-            <User className="h-7 w-7" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-lg font-semibold text-gray-900">{displayName}</p>
-              {isAdmin && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-calpoly-gold/50 bg-calpoly-gold/10 px-2.5 py-0.5 text-xs font-medium text-calpoly-green">
-                  <Shield className="h-3 w-3" />
-                  Admin
-                </span>
+        <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-calpoly-green/10 text-calpoly-green">
+              <User className="h-7 w-7" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900">{displayName}</h2>
+                {showStaffBadge && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-calpoly-gold/50 bg-calpoly-gold/10 px-2.5 py-0.5 text-xs font-medium text-calpoly-green">
+                    <Shield className="h-3 w-3" />
+                    {showSuperAdminBadge ? "Super admin" : "Admin"}
+                  </span>
+                )}
+              </div>
+              {displayEmail && (
+                <p className="mt-0.5 text-sm text-gray-600">{displayEmail}</p>
               )}
             </div>
-            {user?.email && (
-              <p className="mt-0.5 text-sm text-gray-600">{user.email}</p>
+          </div>
+          {profileLoaded && (
+            <Link
+              href={userProfile ? "/onboarding?edit=1" : "/onboarding"}
+              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-calpoly-green shadow-sm transition hover:bg-gray-50"
+            >
+              <Pencil className="h-4 w-4" />
+              {userProfile ? "Edit" : "Complete profile"}
+            </Link>
+          )}
+        </div>
+
+        {profileLoadError && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {profileLoadError}
+          </p>
+        )}
+
+        {!profileLoaded ? (
+          <p className="pt-4 text-sm text-gray-500">Loading profile…</p>
+        ) : !userProfile ? (
+          <div className="pt-4 text-center">
+            <p className="text-sm text-gray-600">
+              {profileLoadError
+                ? "Fix the error above, then refresh."
+                : "Add organization and expertise to help match you with relevant risks."}
+            </p>
+            {!profileLoadError && (
+              <Link
+                href="/onboarding"
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-calpoly-green hover:underline"
+              >
+                Complete profile
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             )}
           </div>
-        </div>
+        ) : (
+          <dl className="grid gap-5 pt-5 sm:grid-cols-2">
+            <ProfileInfoRow
+              label="Organization"
+              value={orgLabel ?? <span className="text-gray-500">—</span>}
+            />
+            <ProfileInfoRow
+              label="Department"
+              value={
+                userProfile.department?.trim() ? (
+                  userProfile.department
+                ) : (
+                  <span className="text-gray-500">—</span>
+                )
+              }
+            />
+            {memberSince && (
+              <ProfileInfoRow label="Member since" value={memberSince} />
+            )}
+            <div className="sm:col-span-2">
+              <ProfileInfoRow
+                label="Expertise"
+                value={
+                  expertiseList.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {expertiseList.map((item) => (
+                        <span
+                          key={item}
+                          className="inline-flex rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-800"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-500">—</span>
+                  )
+                }
+              />
+            </div>
+          </dl>
+        )}
       </section>
 
       {/* Profile-level tabs: Activity vs Settings (same pattern as Dashboard tabs) */}
@@ -645,7 +839,7 @@ export default function ProfilePage() {
                 Notification Preferences
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                {isAdmin
+                {showAdminActivity
                   ? "Control notifications about new and pending risks."
                   : "Control notifications about decisions on your submitted risks."}
               </p>
@@ -658,7 +852,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="mt-4 space-y-4">
-            {isAdmin ? (
+            {showAdminActivity ? (
               <>
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -931,7 +1125,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {activeTab === "approved" && isAdmin && (
+            {activeTab === "approved" && showAdminActivity && (
               <div>
                 <h2 className="text-lg font-semibold text-calpoly-green">Risks you approved</h2>
                 <p className="mt-1 text-sm text-gray-500">
@@ -962,7 +1156,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {activeTab === "rejected" && isAdmin && (
+            {activeTab === "rejected" && showAdminActivity && (
               <div>
                 <h2 className="text-lg font-semibold text-calpoly-green">Risks you rejected</h2>
                 <p className="mt-1 text-sm text-gray-500">
@@ -1002,7 +1196,7 @@ export default function ProfilePage() {
           refetchRisks();
           setViewRisk(null);
         }}
-        readOnly={!isAdmin}
+        readOnly
       />
     </div>
   );
